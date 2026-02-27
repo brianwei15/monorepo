@@ -99,6 +99,7 @@ int main(int argc, char** argv)
     servo.degree_setpoint(35.0f);
     pause(2000);
     servo.degree_setpoint(0.0f);
+    pause(2000);
 
     printf("\nDone.\n");
 

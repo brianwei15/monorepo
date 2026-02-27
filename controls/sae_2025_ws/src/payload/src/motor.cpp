@@ -50,9 +50,8 @@ void Motor::reverse(float duty) {
 }
 
 void Motor::coast() {
-    in1_.write_low();
-    in2_.write_low();
-
+    in1_.write_pwm(frequency_, 0, 0, 0);
+    in2_.write_pwm(frequency_, 0, 0, 0);
 }
 
 void Motor::hard_brake() {
