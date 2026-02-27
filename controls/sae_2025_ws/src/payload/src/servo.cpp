@@ -18,6 +18,6 @@ int Servo::angle_to_pulse(float degree) {
 }
 
 
-rclcpp::Logger logger() {
+rclcpp::Logger Servo::logger() {
     return rclcpp::get_logger("servo");
 }
