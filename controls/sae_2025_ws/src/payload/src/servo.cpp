@@ -7,11 +7,17 @@ Servo::Servo(int handle, int pin, int frequency) :
 
 void Servo::degree_setpoint(float degree) {
     int pulse = angle_to_pulse(degree);
+    RCLCPP_DEBUG(logger(), "Outputting pulse: %d", pulse);
     servo_pin_.write_servo(pulse, frequency_, 0, 0); 
 }
 
 
 int Servo::angle_to_pulse(float degree) {
-    int clamped_degree = static_cast<int>(std::clamp<float>(degree, 0, 180));
-    return 1000 + (clamped_degree * 1000) / 180;
+    float clamped = std::clamp(degree, 0.0f, 180.0f);
+    return static_cast<int>(1000.0f + (clamped * 1000.0f) / 180.0f);
+}
+
+
+rclcpp::Logger logger() {
+    return rclcpp::get_logger("servo");
 }

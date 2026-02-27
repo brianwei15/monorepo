@@ -90,8 +90,10 @@ int main(int argc, char** argv)
 
 
 
-    motor_a.set_speed(0.0f);
-    motor_b.set_speed(0.0f);
+    std::cout << "Stopping motors" << std::endl;
+    motor_a.coast();
+    motor_b.coast();
+    pause(2000);
 
     Servo servo(h, SERVO, 200);
     servo.degree_setpoint(35.0f);

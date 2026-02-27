@@ -1,10 +1,10 @@
 #include "payload/motor.hpp"
 
 Motor::Motor(int handle, int in1, int in2, int frequency, MotorType motor_type) 
-: in1_(handle, in1, Direction::Output), 
-  in2_(handle, in2, Direction::Output),
-  handle_(handle),
+: handle_(handle),
   frequency_(frequency),
+  in1_(handle, in1, Direction::Output),
+  in2_(handle, in2, Direction::Output),
   motor_type_(motor_type) { }
 
 void Motor::set_speed(float speed) {
