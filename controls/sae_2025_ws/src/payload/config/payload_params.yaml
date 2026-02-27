@@ -7,16 +7,16 @@
       
       #A/B pins will get mapped to LEFT/RIGHT
     pins:
-      APHASE:  16
-      AENABLE: 13
-      BPHASE:  15
-      BENABLE: 18
+      AIN1: 16
+      AIN2: 13
+      BIN1: 18
+      BIN2: 15
 
-      ENCA_CH1: 0
-      ENCA_CH2: 11
-      ENCB_CH1: 9
-      ENCB_CH2: 10
-      SERVO:    14
+      ENCA1: 0
+      ENCA2: 11
+      ENCB1: 9
+      ENCB2: 10
+      SERVO: 14
     
     motor:
       pwm_frequency: 500.0 #Hz

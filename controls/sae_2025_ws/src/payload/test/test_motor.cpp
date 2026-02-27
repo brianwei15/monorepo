@@ -8,54 +8,17 @@
 #include "payload/motor.hpp"
 
 // ---- Pins from payload_params.yaml ----
-static constexpr int APHASE  = 16;
-static constexpr int AENABLE = 13;
-static constexpr int BPHASE  = 15;
-static constexpr int BENABLE = 18;
+static constexpr int AIN1  = 16;
+static constexpr int AIN2 = 13;
+static constexpr int BIN1  = 18;
+static constexpr int BIN2 = 15;
+constexpr float FREQ = 200.0; //200 Hz
 
 static void pause(int ms) { std::this_thread::sleep_for(std::chrono::milliseconds(ms)); }
 
 // ---- Test sequences ----
 
-struct Step {
-    const char* label;
-    float a_speed;   // Motor A: -1.0 to 1.0
-    float b_speed;   // Motor B: -1.0 to 1.0
-    int   duration_ms;
-};
-
-static const Step STEPS[] = {
-    // --- Motor A sweep ---
-    {"Motor A  FWD 25%",    0.25f,   0.0f,  2000},
-    {"Motor A  FWD 50%",    0.50f,   0.0f,  2000},
-    {"Motor A  FWD 75%",    0.75f,   0.0f,  2000},
-    {"Motor A  FWD 100%",   1.00f,   0.0f,  2000},
-    {"STOP",                0.0f,    0.0f,   500},
-    {"Motor A  REV 25%",   -0.25f,   0.0f,  2000},
-    {"Motor A  REV 50%",   -0.50f,   0.0f,  2000},
-    {"Motor A  REV 100%",  -1.00f,   0.0f,  2000},
-    {"STOP",                0.0f,    0.0f,   500},
-
-    // --- Motor B sweep ---
-    {"Motor B  FWD 25%",    0.0f,   0.25f,  2000},
-    {"Motor B  FWD 50%",    0.0f,   0.50f,  2000},
-    {"Motor B  FWD 75%",    0.0f,   0.75f,  2000},
-    {"Motor B  FWD 100%",   0.0f,   1.00f,  2000},
-    {"STOP",                0.0f,   0.0f,    500},
-    {"Motor B  REV 50%",    0.0f,  -0.50f,  2000},
-    {"Motor B  REV 100%",   0.0f,  -1.00f,  2000},
-    {"STOP",                0.0f,   0.0f,    500},
-
-    // --- Both motors ---
-    {"Both  FWD 50%",       0.50f,  0.50f,  2000},
-    {"Both  FWD 100%",      1.00f,  1.00f,  2000},
-    {"STOP",                0.0f,   0.0f,    500},
-    {"Both  REV 50%",      -0.50f, -0.50f,  2000},
-    {"STOP",                0.0f,   0.0f,    500},
-};
-
 // ---- Main ----
-
 int main(int argc, char** argv)
 {
     rclcpp::init(argc, argv);
@@ -74,29 +37,28 @@ int main(int argc, char** argv)
     }
 
     // Claim output pins before handing to Motor
-    for (auto [label, pin] : {std::pair{"APHASE",  APHASE},
-                               std::pair{"AENABLE", AENABLE},
-                               std::pair{"BPHASE",  BPHASE},
-                               std::pair{"BENABLE", BENABLE}}) {
+    for (auto [label, pin] : {std::pair{"AIN1",  AIN1},
+                               std::pair{"AIN2", AIN2},
+                               std::pair{"BIN1",  BIN1},
+                               std::pair{"BIN2", BIN2}}) {
         int rc = lgGpioClaimOutput(h, 0, pin, 0);
         printf("  ClaimOutput %-8s (BCM%2d): rc=%d\n", label, pin, rc);
     }
 
-    Motor motor_a(h, APHASE, AENABLE);
+    Motor motor_a(h, AIN1, AIN2, FREQ, MotorType::RIGHT);
     // Motor motor_b(h, BPHASE, BENABLE);
 
-    std::cout << "MOTOR FORWARD 100%" << std::endl;
-    motor_a.set_speed(1.0f);
+    std::cout << "MOTOR FORWARD 70%" << std::endl;
+    motor_a.forward(0.7f);
     pause(2000);
 
     std::cout << "MOTOR FORWARD 20%" << std::endl;
-    motor_a.set_speed(0.2f);
+    motor_a.forward(0.2f);
     pause(2000);
 
 
-    std::cout << "MOTOR REVERSE 100%" << std::endl;
-    motor_a.set_speed(-1.0f);
-
+    std::cout << "MOTOR REVERSE 70%" << std::endl;
+    motor_a.reverse(0.7f);
     pause(2000);
 
     std::cout << "MOTOR REVERSE 20%" << std::endl;
@@ -109,6 +71,7 @@ int main(int argc, char** argv)
     motor_a.set_speed(0.0f);
     printf("\nDone.\n");
 
+    pause(500);
     lgGpiochipClose(h);
     rclcpp::shutdown();
     return 0;

@@ -1,11 +1,11 @@
 #include "payload/motor.hpp"
 
-Motor::Motor(int handle, int phase, int enable) {
+Motor::Motor(int handle, int in1, int in2, float frequency, MotorType motor_type) {
     handle_ = handle;
-
-    uint8_t bin_pwm_perm = static_cast<uint8_t>(PinType::Binary) | static_cast<uint8_t>(PinType::PWM);
-    phase_ = std::make_unique<GPIO>(handle_, phase, bin_pwm_perm); //in1
-    enable_ = std::make_unique<GPIO>(handle_, enable, bin_pwm_perm); //in2
+    frequency_ = frequency_;
+    motor_type_ = motor_type;
+    in1_ = std::make_unique<GPIO>(handle_, in1, Direction::Output); //in1
+    in2_ = std::make_unique<GPIO>(handle_, in2, Direction::Output); //in2
 }
 
 void Motor::set_speed(float speed) {
@@ -16,16 +16,46 @@ void Motor::set_speed(float speed) {
 
     float pwm_duty_cycle = abs(norm_speed * 100.0f); //percentage
     if (norm_speed > 0) { //forward, set phase to 0
-        phase_->write_high();
-        enable_->write_pwm(500.0f, pwm_duty_cycle, 0, 0);
+        forward(pwm_duty_cycle);
     } else if (norm_speed < 0){ //reverse
-        phase_->write_pwm(500.0f, pwm_duty_cycle, 0, 0);
-        enable_->write_high();
-    } else { //brake
-        phase_->write_high();
-        enable_->write_high();
+        reverse(pwm_duty_cycle);
+    } else { //coast
+        coast();
     }
+}
 
+void Motor::forward(float duty) {
+    switch(motor_type_){
+        case MotorType::LEFT:
+            in1_->write_low();
+            in2_->write_pwm(frequency_, duty, 0, 0);
+        case MotorType::RIGHT:
+            in1_->write_pwm(frequency_, duty, 0, 0);
+            in2_->write_low();
+    }
+}
 
+void Motor::reverse(float duty) {
+    switch(motor_type_){
+        case MotorType::LEFT:
+            in1_->write_pwm(frequency_, duty, 0, 0);
+            in2_->write_low();
+            break;
+        case MotorType::RIGHT:
+            in1_->write_low();
+            in2_->write_pwm(frequency_, duty, 0, 0);
+            break;
+    }
+}
+
+void Motor::coast() {
+    in1_->write_low();
+    in2_->write_low();
 
 }
+
+void Motor::hard_brake() {
+    in1_->write_high();
+    in2_->write_high();
+}
+    

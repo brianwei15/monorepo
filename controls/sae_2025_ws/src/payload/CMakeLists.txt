@@ -126,20 +126,6 @@ if(BUILD_TESTING)
   if(NOT BUILD_SIM)
     find_package(ament_cmake_gtest REQUIRED)
 
-    ament_add_gtest(test_gpio_permissions
-      test/test_gpio_permissions.cpp
-      test/mock_lgpio.cpp
-      src/gpio.cpp                     # compile GPIO class directly (not via shared lib)
-    )
-
-    target_include_directories(test_gpio_permissions PRIVATE
-      include
-      ${LGPIO_INCLUDE_DIR}             # lgpio.h needed for PinType struct declarations
-      test                             # mock_lgpio.hpp
-    )
-
-    ament_target_dependencies(test_gpio_permissions rclcpp)
-    # NOTE: do NOT link ${LGPIO_LIBRARY} — the mock provides the lgpio symbols
   endif()
 endif()
 

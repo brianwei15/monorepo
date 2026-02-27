@@ -18,16 +18,11 @@ import lgpio
 import time
 
 # --- Pin assignments (BCM numbering) ---
-
-# AIN1: 16
-# AIN2: 13
-# BIN1: 18
-# BIN2: 15
-
 A_IN1 = 16   # Motor A IN1 (PWM1)
 A_IN2 = 13   # Motor A IN2
-B_IN1 = 18   # Motor B IN1 (PWM0)
-B_IN2 = 15   # Motor B IN2
+
+B_IN1 = 15   # Motor B IN1 (PWM0)
+B_IN2 = 18   # Motor B IN2
 
 PWM_HZ    = 500
 TEST_DUTY = 50.0   # 50%
