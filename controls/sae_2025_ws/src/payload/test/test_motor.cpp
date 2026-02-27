@@ -17,12 +17,12 @@ static constexpr int DRV_AIN2 = 13;
 static constexpr int DRV_BIN1 = 18;
 static constexpr int DRV_BIN2 = 15;
 // SN754410 pins
-static constexpr int SN_A_PWM = 12;
-static constexpr int SN_AIN1  = 5;
-static constexpr int SN_AIN2  = 6;
-static constexpr int SN_B_PWM = 13;
-static constexpr int SN_BIN1  = 20;
-static constexpr int SN_BIN2  = 21;
+static constexpr int SN_A_PWM = 13;
+static constexpr int SN_AIN1  = 16;
+static constexpr int SN_AIN2  = 20;
+static constexpr int SN_B_PWM = 18;
+static constexpr int SN_BIN1  = 15;
+static constexpr int SN_BIN2  = 14;
 
 constexpr int SERVO = 14;
 constexpr float FREQ = 200.0; //200 Hz
@@ -93,51 +93,59 @@ int main(int argc, char** argv)
     g_motor_b = motor_b.get();
     std::signal(SIGINT, on_sigint);
 
-    std::cout << "MOTOR FORWARD 70%" << std::endl;
+    std::cout << "MOTOR A FORWARD 70%" << std::endl;
     motor_a->forward(70.0f);
-    pause(2000);
+    pause(1000);
 
-    std::cout << "MOTOR FORWARD 20%" << std::endl;
+    std::cout << "MOTOR A FORWARD 20%" << std::endl;
     motor_a->forward(20.0f);
-    pause(2000);
+    pause(1000);
 
 
-    std::cout << "MOTOR REVERSE 100%" << std::endl;
+    std::cout << "MOTOR A REVERSE 100%" << std::endl;
     motor_a->reverse(100.0f);
-    pause(2000);
+    pause(1000);
 
-    std::cout << "MOTOR REVERSE 50%" << std::endl;
+    std::cout << "MOTOR A REVERSE 50%" << std::endl;
     motor_a->reverse(50.0f);
-    pause(2000);
+    pause(1000);
 
+    std::cout << "MOTOR A STOPPING:" << std::endl;
+    motor_a->coast();
+    pause(1000);
 
     std::cout << "MOTOR B FORWARD 70%" << std::endl;
     motor_b->forward(70.0f);
-    pause(2000);
+    pause(1000);
 
     std::cout << "MOTOR B FORWARD 20%" << std::endl;
     motor_b->forward(20.0f);
-    pause(2000);
+    pause(1000);
 
 
     std::cout << "MOTOR B REVERSE 100%" << std::endl;
     motor_b->reverse(100.0f);
-    pause(2000);
+    pause(1000);
 
     std::cout << "MOTOR B REVERSE 50%" << std::endl;
     motor_b->reverse(50.0f);
-    pause(2000);
+    pause(1000);
 
     std::cout << "Stopping motors" << std::endl;
     motor_a->coast();
     motor_b->coast();
-    pause(2000);
+    pause(1000);
 
-    // Servo servo(h, SERVO, 200);
-    // servo.degree_setpoint(35.0f);
-    // pause(2000);
-    // servo.degree_setpoint(0.0f);
-    // pause(2000);
+    std::cout << "BOTH FORWARD" << std::endl;
+    motor_a->forward(100.0f);
+    motor_b->forward(100.0f);
+    pause(1000);
+
+
+    std::cout << "BOTH FORWARD" << std::endl;
+    motor_a->reverse(100.0f);
+    motor_b->reverse(100.0f);
+    pause(1000);
 
     printf("\nDone.\n");
 
