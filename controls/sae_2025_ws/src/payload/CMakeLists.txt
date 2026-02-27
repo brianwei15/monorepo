@@ -60,6 +60,7 @@ else()
     src/motor.cpp
     src/servo.cpp
     src/gpio.cpp
+    src/encoder.cpp
   )
   target_include_directories(test_motor PRIVATE include ${LGPIO_INCLUDE_DIR})
   ament_target_dependencies(test_motor rclcpp)
