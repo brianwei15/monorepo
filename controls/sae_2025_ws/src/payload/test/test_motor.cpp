@@ -57,20 +57,39 @@ int main(int argc, char** argv)
     pause(2000);
 
 
-    std::cout << "MOTOR REVERSE 70%" << std::endl;
-    motor_a.reverse(70.0f);
+    std::cout << "MOTOR REVERSE 100%" << std::endl;
+    motor_a.reverse(100.0f);
     pause(2000);
 
-    std::cout << "MOTOR REVERSE 20%" << std::endl;
-    motor_a.reverse(20.0f);
+    std::cout << "MOTOR REVERSE 50%" << std::endl;
+    motor_a.reverse(50.0f);
     pause(2000);
     // motor_a.set_speed(-0.2f);
     // pause(2000);
 
+    Motor motor_b(h, BIN1, BIN2, FREQ, MotorType::LEFT);
+
+    std::cout << "MOTOR B FORWARD 70%" << std::endl;
+    motor_b.forward(70.0f);
+    pause(2000);
+
+    std::cout << "MOTOR B FORWARD 20%" << std::endl;
+    motor_b.forward(20.0f);
+    pause(2000);
+
+
+    std::cout << "MOTOR B REVERSE 100%" << std::endl;
+    motor_b.reverse(100.0f);
+    pause(2000);
+
+    std::cout << "MOTOR B REVERSE 50%" << std::endl;
+    motor_b.reverse(50.0f);
+    pause(2000);
 
 
 
     motor_a.set_speed(0.0f);
+    motor_b.set_speed(0.0f);
     printf("\nDone.\n");
 
     pause(500);
