@@ -2,21 +2,47 @@
 #include <lgpio.h>
 
 #include <chrono>
+#include <csignal>
 #include <cstdio>
+#include <cstdlib>
 #include <thread>
 
 #include "payload/motor.hpp"
 #include "payload/servo.hpp"
 
 // ---- Pins from payload_params.yaml ----
-static constexpr int AIN1  = 16;
-static constexpr int AIN2 = 13;
-static constexpr int BIN1  = 18;
-static constexpr int BIN2 = 15;
+// DRV8835 pins
+static constexpr int DRV_AIN1 = 16;
+static constexpr int DRV_AIN2 = 13;
+static constexpr int DRV_BIN1 = 18;
+static constexpr int DRV_BIN2 = 15;
+// SN754410 pins
+static constexpr int SN_A_PWM = 12;
+static constexpr int SN_AIN1  = 5;
+static constexpr int SN_AIN2  = 6;
+static constexpr int SN_B_PWM = 13;
+static constexpr int SN_BIN1  = 20;
+static constexpr int SN_BIN2  = 21;
+
 constexpr int SERVO = 14;
 constexpr float FREQ = 200.0; //200 Hz
 
 static void pause(int ms) { std::this_thread::sleep_for(std::chrono::milliseconds(ms)); }
+
+// ---- Signal handling ----
+static int       g_handle  = -1;
+static Motor*    g_motor_a = nullptr;
+static Motor*    g_motor_b = nullptr;
+
+static void on_sigint(int)
+{
+    printf("\nCaught SIGINT — coasting motors and cleaning up\n");
+    if (g_motor_a) g_motor_a->coast();
+    if (g_motor_b) g_motor_b->coast();
+    if (g_handle >= 0) lgGpiochipClose(g_handle);
+    rclcpp::shutdown();
+    std::exit(0);
+}
 
 // ---- Test sequences ----
 
@@ -37,69 +63,81 @@ int main(int argc, char** argv)
         rclcpp::shutdown();
         return 1;
     }
+    g_handle = h;
 
-    // // Claim output pins before handing to Motor
-    // for (auto [label, pin] : {std::pair{"AIN1",  AIN1},
-    //                            std::pair{"AIN2", AIN2},
-    //                            std::pair{"BIN1",  BIN1},
-    //                            std::pair{"BIN2", BIN2}}) {
-    //     int rc = lgGpioClaimOutput(h, 0, pin, 0);
-    //     printf("  ClaimOutput %-8s (BCM%2d): rc=%d\n", label, pin, rc);
-    // }
+    if (argc < 2) {
+        printf("Usage: %s <0|1>  (0=DRVMotor, 1=SNMotor)\n", argv[0]);
+        lgGpiochipClose(h);
+        rclcpp::shutdown();
+        return 1;
+    }
+    int test_mode = std::atoi(argv[1]);
 
-    Motor motor_a(h, AIN1, AIN2, FREQ, MotorType::RIGHT);
-    // Motor motor_b(h, BPHASE, BENABLE);
+    std::unique_ptr<Motor> motor_a;
+    std::unique_ptr<Motor> motor_b;
+    if (test_mode == 0) {
+        printf("Running DRVMotor test\n");
+        motor_a = std::make_unique<DRVMotor>(h, DRV_AIN1, DRV_AIN2, FREQ, MotorType::RIGHT);
+        motor_b = std::make_unique<DRVMotor>(h, DRV_BIN1, DRV_BIN2, FREQ, MotorType::LEFT);
+    } else if (test_mode == 1) {
+        printf("Running SNMotor test\n");
+        motor_a = std::make_unique<SNMotor>(h, SN_A_PWM, SN_AIN1, SN_AIN2, FREQ, MotorType::RIGHT);
+        motor_b = std::make_unique<SNMotor>(h, SN_B_PWM, SN_BIN1, SN_BIN2, FREQ, MotorType::LEFT);
+    } else {
+        printf("ERROR: invalid argument '%s', expected 0 or 1\n", argv[1]);
+        lgGpiochipClose(h);
+        rclcpp::shutdown();
+        return 1;
+    }
+    g_motor_a = motor_a.get();
+    g_motor_b = motor_b.get();
+    std::signal(SIGINT, on_sigint);
 
     std::cout << "MOTOR FORWARD 70%" << std::endl;
-    motor_a.forward(70.0f);
+    motor_a->forward(70.0f);
     pause(2000);
 
     std::cout << "MOTOR FORWARD 20%" << std::endl;
-    motor_a.forward(20.0f);
+    motor_a->forward(20.0f);
     pause(2000);
 
 
     std::cout << "MOTOR REVERSE 100%" << std::endl;
-    motor_a.reverse(100.0f);
+    motor_a->reverse(100.0f);
     pause(2000);
 
     std::cout << "MOTOR REVERSE 50%" << std::endl;
-    motor_a.reverse(50.0f);
+    motor_a->reverse(50.0f);
     pause(2000);
-    // motor_a.set_speed(-0.2f);
-    // pause(2000);
 
-    Motor motor_b(h, BIN1, BIN2, FREQ, MotorType::LEFT);
 
     std::cout << "MOTOR B FORWARD 70%" << std::endl;
-    motor_b.forward(70.0f);
+    motor_b->forward(70.0f);
     pause(2000);
 
     std::cout << "MOTOR B FORWARD 20%" << std::endl;
-    motor_b.forward(20.0f);
+    motor_b->forward(20.0f);
     pause(2000);
 
 
     std::cout << "MOTOR B REVERSE 100%" << std::endl;
-    motor_b.reverse(100.0f);
+    motor_b->reverse(100.0f);
     pause(2000);
 
     std::cout << "MOTOR B REVERSE 50%" << std::endl;
-    motor_b.reverse(50.0f);
+    motor_b->reverse(50.0f);
     pause(2000);
-
-
 
     std::cout << "Stopping motors" << std::endl;
-    motor_a.coast();
-    motor_b.coast();
+    motor_a->coast();
+    motor_b->coast();
     pause(2000);
 
-    Servo servo(h, SERVO, 200);
-    servo.degree_setpoint(35.0f);
-    pause(2000);
-    servo.degree_setpoint(0.0f);
-    pause(2000);
+    // Servo servo(h, SERVO, 200);
+    // servo.degree_setpoint(35.0f);
+    // pause(2000);
+    // servo.degree_setpoint(0.0f);
+    // pause(2000);
 
     printf("\nDone.\n");
 

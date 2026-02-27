@@ -24,11 +24,11 @@ h = lgpio.gpiochip_open(0)
 
 # Claim direction pins as outputs
 for pin in [A_IN1, A_IN2, B_IN1, B_IN2]:
-    lgpio.gpio_claim_output(h, pin)
+    lgpio.gpio_claim_output(h, pin, 0)
 
 # Claim PWM pins as outputs (needed before PWM)
 for pin in [A_PWM, B_PWM]:
-    lgpio.gpio_claim_output(h, pin)
+    lgpio.gpio_claim_output(h, pin, 0)
 
 # ----------------------
 # Motor Control Functions
