@@ -1,26 +1,45 @@
-#TODO: can differentiate between general (shared), gpio only, and sim only params
-#TODO: Add necessary clamp param values (Ex. linear and angular velocity)
 /**:
   ros__parameters:
-    controller: "GPIOController" #Name of the controller plugin to instantiate. 
-                      #Currently only have SimController or GPIOController
-      
-      #A/B pins will get mapped to LEFT/RIGHT
-    pins:
-      AIN1: 16
-      AIN2: 13
-      BIN1: 18
-      BIN2: 15
+    # Name of the controller plugin to instantiate.
+    controller: "GPIOController"
 
-      ENCA1: 0
-      ENCA2: 11
-      ENCB1: 9
-      ENCB2: 10
+    pins:
+      APHASE: 16
+      AENABLE: 13
+      BPHASE: 15
+      BENABLE: 18
+
+      ENCA_CH1: 0
+      ENCA_CH2: 11
+      ENCB_CH1: 9
+      ENCB_CH2: 10
       SERVO: 14
-    
+
     motor:
-      pwm_frequency: 500.0 #Hz
-      max_norm_speed: 1.0  #Must be between [0.0, 1.0]
+      pwm_frequency: 500.0
+      max_wheel_rpm: 120.0
+      max_norm_speed: 1.0
+
+    encoder:
+      output_cpr: 617
+      left_sign: 1
+      right_sign: 1
+
+    kinematics:
+      wheel_radius_m: 0.01611839
+      wheel_separation_m: 0.12132
+
+    pid:
+      kp: 0.02
+      ki: 0.0
+      kd: 0.0
+      i_clamp: 1.0
+      output_limit_norm: 1.0
+      stop_deadband_rpm: 1.0
+      velocity_alpha: 1.0
+
+    control:
+      loop_ms: 50
 
     sim:
       world_name: "custom"

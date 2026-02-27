@@ -2,68 +2,101 @@
 #define GPIO_CONTROLLER_HPP
 
 #include <rclcpp/rclcpp.hpp>
+#include <rcl_interfaces/msg/set_parameters_result.hpp>
 #include <lgpio.h>
 
 #include <atomic>
+#include <chrono>
+#include <memory>
+#include <mutex>
 #include <thread>
+#include <vector>
 
 #include "payload/controller.hpp"
-
-// TODO: Parameterize these
-// -------- Motor pins (BCM numbering) --------
-constexpr int LEFT_IN1  = 13;  // PWM  (PWM1) out A ENABLE
-constexpr int LEFT_IN2  = 16;  //             out A PHASE
-constexpr int RIGHT_IN1 = 18;  // PWM  (PWM0) out B ENABLE
-constexpr int RIGHT_IN2 = 15;  //             out B PHASE
-
-// -------- Encoder pins (BCM numbering) --------
-constexpr int ENC_LEFT_A  = 0;   // interrupt Enc A1
-constexpr int ENC_LEFT_B  = 9;   // sampled   Enc B1
-constexpr int ENC_RIGHT_A = 11;  // interrupt Enc A2
-constexpr int ENC_RIGHT_B = 10;  // sampled   Enc B2
-
-// -------- Servo pin --------
-constexpr int SERVO_PIN = 14;
-
-
-// -------- Control params --------
-constexpr int   MAX_PWM     = 255;
-constexpr float KP_STRAIGHT = 0.5f;
-constexpr int   LOOP_MS     = 50;
-constexpr int   PWM_HZ      = 200;
-
+#include "payload/control_math.hpp"
+#include "payload/encoder.hpp"
+#include "payload_interfaces/msg/motor_state.hpp"
+#include "payload_interfaces/srv/compute_pid_ziegler_nichols.hpp"
 
 class GPIOController : public Controller {
 public:
     GPIOController();
-    ~GPIOController();
+    ~GPIOController() override;
 
     void initialize(std::shared_ptr<rclcpp::Node> node) override;
-
-    // Receives normalized linear and angular commands.
-    // Converts to differential drive PWM with encoder straight correction.
     void drive_command(double linear, double angular) override;
 
-    int handle_ {-1};  // lgpio chip handle (public for callback access)
-
 private:
-    // lgpio alert callbacks — fire on rising edge (LG_RISING_EDGE) of encoder A pins.
-    static void enc_left_alert (int num_alerts, lgGpioAlert_p alerts, void* userdata);
-    static void enc_right_alert(int num_alerts, lgGpioAlert_p alerts, void* userdata);
+    struct ControllerConfig {
+        int left_pwm_pin {13};
+        int left_dir_pin {16};
+        int right_pwm_pin {18};
+        int right_dir_pin {15};
 
-    // Runs every LOOP_MS ms: converts cmd_linear_/cmd_angular_ to
-    // differential drive PWM and applies encoder straight correction.
+        int enc_left_a {0};
+        int enc_left_b {9};
+        int enc_right_a {11};
+        int enc_right_b {10};
+
+        int pwm_hz {500};
+        int loop_ms {50};
+
+        int encoder_output_cpr {617};
+        int encoder_left_sign {1};
+        int encoder_right_sign {1};
+
+        double wheel_radius_m {0.01611839};
+        double wheel_separation_m {0.12132};
+        double max_wheel_rpm {120.0};
+
+        payload::control_math::PidConfig pid {
+            0.02,
+            0.0,
+            0.0,
+            1.0,
+            1.0,
+            1.0,
+        };
+        double velocity_alpha {1.0};
+    };
+
+    void load_initial_config_from_parameters();
+    rcl_interfaces::msg::SetParametersResult on_parameters_set(
+        const std::vector<rclcpp::Parameter>& params);
+
+    void compute_pid_zn_callback(
+        const std::shared_ptr<payload_interfaces::srv::ComputePidZieglerNichols::Request> request,
+        std::shared_ptr<payload_interfaces::srv::ComputePidZieglerNichols::Response> response);
+
     void control_loop();
 
     std::shared_ptr<rclcpp::Node> node_;
+    int handle_ {-1};
 
-    std::atomic<long>   count_left_   {0};
-    std::atomic<long>   count_right_  {0};
-    std::atomic<double> cmd_linear_   {0.0};
-    std::atomic<double> cmd_angular_  {0.0};
-    std::atomic<bool>   running_      {false};
+    std::mutex config_mutex_;
+    ControllerConfig config_;
+
+    std::atomic<double> cmd_linear_ {0.0};
+    std::atomic<double> cmd_angular_ {0.0};
+    std::atomic<bool> running_ {false};
+
+    std::unique_ptr<QuadratureEncoder> left_encoder_;
+    std::unique_ptr<QuadratureEncoder> right_encoder_;
+
+    int64_t prev_left_count_ {0};
+    int64_t prev_right_count_ {0};
+    std::chrono::steady_clock::time_point prev_loop_time_ {};
+
+    double left_filtered_rpm_ {0.0};
+    double right_filtered_rpm_ {0.0};
+    payload::control_math::PidState left_pid_state_ {};
+    payload::control_math::PidState right_pid_state_ {};
 
     std::thread control_thread_;
+
+    rclcpp::Publisher<payload_interfaces::msg::MotorState>::SharedPtr motor_state_pub_;
+    rclcpp::Service<payload_interfaces::srv::ComputePidZieglerNichols>::SharedPtr zn_service_;
+    rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr parameter_callback_handle_;
 };
 
 #endif

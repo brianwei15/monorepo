@@ -36,6 +36,7 @@ add_library(payload_controllers SHARED
 
 ament_target_dependencies(payload_controllers
   rclcpp
+  payload_interfaces
   pluginlib
 )
 
@@ -50,6 +51,10 @@ if(BUILD_SIM)
   )
   target_compile_definitions(payload_controllers PRIVATE BUILD_SIM)
 else()
+  target_sources(payload_controllers PRIVATE
+    src/encoder.cpp
+    src/control_math.cpp
+  )
   target_link_libraries(payload_controllers ${LGPIO_LIBRARY})
   target_include_directories(payload_controllers PUBLIC ${LGPIO_INCLUDE_DIR})
   target_compile_definitions(payload_controllers PRIVATE BUILD_GPIO)
@@ -114,6 +119,7 @@ install(DIRECTORY
 
 
 if(BUILD_TESTING)
+  find_package(ament_cmake_gtest REQUIRED)
   find_package(ament_lint_auto REQUIRED)
   # the following line skips the linter which checks for copyrights
   # comment the line when a copyright and license is added to all source files
@@ -124,10 +130,12 @@ if(BUILD_TESTING)
   set(ament_cmake_cpplint_FOUND TRUE)
   ament_lint_auto_find_test_dependencies()
 
-  # GPIO permission tests — only when building for real hardware (lgpio available)
-  if(NOT BUILD_SIM)
-    find_package(ament_cmake_gtest REQUIRED)
-
+  ament_add_gtest(test_control_math
+    test/test_control_math.cpp
+    src/control_math.cpp
+  )
+  if(TARGET test_control_math)
+    target_include_directories(test_control_math PRIVATE include)
   endif()
 endif()
 
