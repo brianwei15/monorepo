@@ -6,12 +6,14 @@
 #include <thread>
 
 #include "payload/motor.hpp"
+#include "payload/servo.hpp"
 
 // ---- Pins from payload_params.yaml ----
 static constexpr int AIN1  = 16;
 static constexpr int AIN2 = 13;
 static constexpr int BIN1  = 18;
 static constexpr int BIN2 = 15;
+constexpr int SERVO = 14;
 constexpr float FREQ = 200.0; //200 Hz
 
 static void pause(int ms) { std::this_thread::sleep_for(std::chrono::milliseconds(ms)); }
@@ -90,6 +92,12 @@ int main(int argc, char** argv)
 
     motor_a.set_speed(0.0f);
     motor_b.set_speed(0.0f);
+
+    Servo servo(h, SERVO, 200);
+    servo.degree_setpoint(35.0f);
+    pause(2000);
+    servo.degree_setpoint(0.0f);
+
     printf("\nDone.\n");
 
     pause(500);

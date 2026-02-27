@@ -1,12 +1,11 @@
 #include "payload/motor.hpp"
 
-Motor::Motor(int handle, int in1, int in2, float frequency, MotorType motor_type) {
-    handle_ = handle;
-    frequency_ = frequency;
-    motor_type_ = motor_type;
-    in1_ = std::make_unique<GPIO>(handle_, in1, Direction::Output); //in1
-    in2_ = std::make_unique<GPIO>(handle_, in2, Direction::Output); //in2
-}
+Motor::Motor(int handle, int in1, int in2, int frequency, MotorType motor_type) 
+: in1_(handle, in1, Direction::Output), 
+  in2_(handle_, in2, Direction::Output),
+  handle_(handle),
+  frequency_(frequency),
+  motor_type_(motor_type) { }
 
 void Motor::set_speed(float speed) {
     float norm_speed = std::clamp<float>(speed, -1.0f, 1.0f);
@@ -27,12 +26,12 @@ void Motor::set_speed(float speed) {
 void Motor::forward(float duty) {
     switch(motor_type_){
         case MotorType::LEFT:
-            in1_->write_low();
-            in2_->write_pwm(frequency_, duty, 0, 0);
+            in1_.write_low();
+            in2_.write_pwm(frequency_, duty, 0, 0);
             break;
         case MotorType::RIGHT:
-            in1_->write_pwm(frequency_, duty, 0, 0);
-            in2_->write_low();
+            in1_.write_pwm(frequency_, duty, 0, 0);
+            in2_.write_low();
             break;
     }
 }
@@ -40,24 +39,24 @@ void Motor::forward(float duty) {
 void Motor::reverse(float duty) {
     switch(motor_type_){
         case MotorType::LEFT:
-            in1_->write_pwm(frequency_, duty, 0, 0);
-            in2_->write_low();
+            in1_.write_pwm(frequency_, duty, 0, 0);
+            in2_.write_low();
             break;
         case MotorType::RIGHT:
-            in1_->write_low();
-            in2_->write_pwm(frequency_, duty, 0, 0);
+            in1_.write_low();
+            in2_.write_pwm(frequency_, duty, 0, 0);
             break;
     }
 }
 
 void Motor::coast() {
-    in1_->write_low();
-    in2_->write_low();
+    in1_.write_low();
+    in2_.write_low();
 
 }
 
 void Motor::hard_brake() {
-    in1_->write_high();
-    in2_->write_high();
+    in1_.write_high();
+    in2_.write_high();
 }
     

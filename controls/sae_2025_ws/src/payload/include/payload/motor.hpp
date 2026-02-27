@@ -14,7 +14,7 @@ enum class MotorType {
 // PWM Controls based on DRV8835 driver with MODE=0
 class Motor {
     public:
-        Motor(int handle, int in1, int in2, float frequency, MotorType motor_type);
+        Motor(int handle, int in1, int in2, int frequency, MotorType motor_type);
         void set_speed(float speed);// Normalized speed, -1.0 for max reverse, 1.0 for max forward
         void forward(float duty); // forward/coast mode
         void reverse(float duty); // reverse/coast mode
@@ -24,9 +24,9 @@ class Motor {
 
     private:
         int handle_{};
-        float frequency_{};
-        std::unique_ptr<GPIO> in1_;   //binary phase_pin, 
-        std::unique_ptr<GPIO> in2_;  //pwm only enable_pin
+        int frequency_{};
+        GPIO in1_;   //binary phase_pin, 
+        GPIO in2_;  //pwm only enable_pin
         MotorType motor_type_;
 
 
