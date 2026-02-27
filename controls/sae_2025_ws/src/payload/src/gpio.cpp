@@ -5,13 +5,17 @@ GPIO::GPIO(int handle, int pin, Direction direction) {
     handle_ = handle;
     pin_ = pin;
     direction_ = direction;
+    int rc = 0;
     switch(direction_){
         case Direction::Input:
-            int rc = lgGpioClaimInput(handle_, 0, pin_);
+            rc = lgGpioClaimInput(handle_, 0, pin_);
             break;
         case Direction::Output:
-            int rc = lgGpioClaimOutput(handle_, 0, pin_, 0);
+            rc = lgGpioClaimOutput(handle_, 0, pin_, 0);
             break;
+    }
+    if (rc < 0) {
+        RCLCPP_ERROR(logger(), "GPIO claim failed");
     }
 }
 
