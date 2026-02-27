@@ -8,22 +8,30 @@ payload:
   
 
   pins:
-    APHASE:
-      type: int
-      default_value: 16
-      description: "Pin number for APHASE/AIN1 motor logic input"
-    AENABLE:
+    APWM:
       type: int
       default_value: 13
-      description: "Pin number for AENABLE/AIN2 motor logic input"
-    BPHASE:
+      description: "SN754410 Motor A enable/PWM pin"
+    AIN1:
       type: int
-      default_value: 15
-      description: "Pin number for BPHASE/BIN1 motor logic input"
-    BENABLE:
+      default_value: 16
+      description: "SN754410 Motor A logic input IN1"
+    AIN2:
+      type: int
+      default_value: 20
+      description: "SN754410 Motor A logic input IN2"
+    BPWM:
       type: int
       default_value: 18
-      description: "Pin number for BENABLE/BIN1 motor logic input"
+      description: "SN754410 Motor B enable/PWM pin"
+    BIN1:
+      type: int
+      default_value: 15
+      description: "SN754410 Motor B logic input IN1"
+    BIN2:
+      type: int
+      default_value: 14
+      description: "SN754410 Motor B logic input IN2"
     ENCA_CH1:
       type: int
       default_value: 0

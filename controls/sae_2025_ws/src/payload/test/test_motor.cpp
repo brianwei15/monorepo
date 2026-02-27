@@ -12,11 +12,6 @@
 #include "payload/encoder.hpp"
 
 // ---- Pins from payload_params.yaml ----
-// DRV8835 pins
-static constexpr int DRV_AIN1 = 16;
-static constexpr int DRV_AIN2 = 13;
-static constexpr int DRV_BIN1 = 18;
-static constexpr int DRV_BIN2 = 15;
 // SN754410 pins
 static constexpr int SN_A_PWM = 13;
 static constexpr int SN_AIN1  = 16;
@@ -87,30 +82,11 @@ int main(int argc, char** argv)
     }
     g_handle = h;
 
-    if (argc < 2) {
-        printf("Usage: %s <0|1>  (0=DRVMotor, 1=SNMotor)\n", argv[0]);
-        lgGpiochipClose(h);
-        rclcpp::shutdown();
-        return 1;
-    }
-    int test_mode = std::atoi(argv[1]);
-
     std::unique_ptr<Motor> motor_a;
     std::unique_ptr<Motor> motor_b;
-    if (test_mode == 0) {
-        printf("Running DRVMotor test\n");
-        motor_a = std::make_unique<DRVMotor>(h, DRV_AIN1, DRV_AIN2, FREQ, MotorType::RIGHT);
-        motor_b = std::make_unique<DRVMotor>(h, DRV_BIN1, DRV_BIN2, FREQ, MotorType::LEFT);
-    } else if (test_mode == 1) {
-        printf("Running SNMotor test\n");
-        motor_a = std::make_unique<SNMotor>(h, SN_A_PWM, SN_AIN1, SN_AIN2, FREQ, MotorType::RIGHT);
-        motor_b = std::make_unique<SNMotor>(h, SN_B_PWM, SN_BIN1, SN_BIN2, FREQ, MotorType::LEFT);
-    } else {
-        printf("ERROR: invalid argument '%s', expected 0 or 1\n", argv[1]);
-        lgGpiochipClose(h);
-        rclcpp::shutdown();
-        return 1;
-    }
+    printf("Running SNMotor test\n");
+    motor_a = std::make_unique<SNMotor>(h, SN_A_PWM, SN_AIN1, SN_AIN2, FREQ, MotorType::RIGHT);
+    motor_b = std::make_unique<SNMotor>(h, SN_B_PWM, SN_BIN1, SN_BIN2, FREQ, MotorType::LEFT);
     g_motor_a = motor_a.get();
     g_motor_b = motor_b.get();
     std::signal(SIGINT, on_sigint);

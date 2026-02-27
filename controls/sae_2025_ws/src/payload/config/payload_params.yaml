@@ -4,10 +4,12 @@
     controller: "GPIOController"
 
     pins:
-      APHASE: 16
-      AENABLE: 13
-      BPHASE: 15
-      BENABLE: 18
+      APWM: 13
+      AIN1: 16
+      AIN2: 20
+      BPWM: 18
+      BIN1: 15
+      BIN2: 14
 
       ENCA_CH1: 0
       ENCA_CH2: 11

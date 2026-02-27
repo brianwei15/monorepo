@@ -1,17 +1,9 @@
 #!/usr/bin/env python3
 """
-DRV8835 motor test script — IN/IN mode (MODE pin disconnected or LOW)
+Legacy low-level motor test script.
 
-Truth table (MODE=0, IN/IN):
-  IN1=0,   IN2=0   -> coast (outputs Z)
-  IN1=PWM, IN2=0   -> forward/coast at PWM%
-  IN1=0,   IN2=PWM -> reverse/coast at PWM%
-  IN1=1,   IN2=1   -> brake low
-
-Motor A: A_IN1=BCM13 (R, PWM1),  A_IN2=BCM16 (Br)
-Motor B: B_IN1=BCM18 (P, PWM0),  B_IN2=BCM15 (Gr)
-
-Run:  python3 test_motors.py
+This script drives two pins per motor and was used for previous wiring.
+For SN754410 (PWM + IN1 + IN2), prefer `sn754410_test.py`.
 """
 
 import lgpio

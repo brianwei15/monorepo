@@ -29,9 +29,11 @@ public:
 private:
     struct ControllerConfig {
         int left_pwm_pin {13};
-        int left_dir_pin {16};
+        int left_in1_pin {16};
+        int left_in2_pin {20};
         int right_pwm_pin {18};
-        int right_dir_pin {15};
+        int right_in1_pin {15};
+        int right_in2_pin {14};
 
         int enc_left_a {0};
         int enc_left_b {9};

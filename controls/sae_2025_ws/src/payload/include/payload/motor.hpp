@@ -11,7 +11,7 @@ enum class MotorType {
     RIGHT
 };
 
-// PWM Controls based on DRV8835 driver with MODE=0
+// Abstract motor interface.
 class Motor {
     public:
         // Motor(int handle, int in1, int in2, int frequency, MotorType motor_type);
@@ -26,6 +26,7 @@ class Motor {
 
 class DRVMotor : public Motor {
     public:
+        // Legacy driver retained for compatibility in older tests.
         DRVMotor(int handle, int in1, int in2, int frequency, MotorType motor_type);
         void set_speed(float speed) override;
         void forward(float duty) override;

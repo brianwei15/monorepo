@@ -33,8 +33,10 @@ GPIOController::~GPIOController()
     if (handle_ >= 0) {
         lgTxPwm(handle_, config.left_pwm_pin, 0, 0.0f, 0, 0);
         lgTxPwm(handle_, config.right_pwm_pin, 0, 0.0f, 0, 0);
-        lgGpioWrite(handle_, config.left_dir_pin, 0);
-        lgGpioWrite(handle_, config.right_dir_pin, 0);
+        lgGpioWrite(handle_, config.left_in1_pin, 0);
+        lgGpioWrite(handle_, config.left_in2_pin, 0);
+        lgGpioWrite(handle_, config.right_in1_pin, 0);
+        lgGpioWrite(handle_, config.right_in2_pin, 0);
         lgGpiochipClose(handle_);
         handle_ = -1;
     }
@@ -62,15 +64,19 @@ void GPIOController::initialize(std::shared_ptr<rclcpp::Node> node)
         config = config_;
     }
 
-    const int rc_left_dir = lgGpioClaimOutput(handle_, 0, config.left_dir_pin, 0);
-    const int rc_right_dir = lgGpioClaimOutput(handle_, 0, config.right_dir_pin, 0);
+    const int rc_left_in1 = lgGpioClaimOutput(handle_, 0, config.left_in1_pin, 0);
+    const int rc_left_in2 = lgGpioClaimOutput(handle_, 0, config.left_in2_pin, 0);
+    const int rc_right_in1 = lgGpioClaimOutput(handle_, 0, config.right_in1_pin, 0);
+    const int rc_right_in2 = lgGpioClaimOutput(handle_, 0, config.right_in2_pin, 0);
     const int rc_left_pwm = lgGpioClaimOutput(handle_, 0, config.left_pwm_pin, 0);
     const int rc_right_pwm = lgGpioClaimOutput(handle_, 0, config.right_pwm_pin, 0);
 
-    if (rc_left_dir < 0 || rc_right_dir < 0 || rc_left_pwm < 0 || rc_right_pwm < 0) {
+    if (rc_left_in1 < 0 || rc_left_in2 < 0 ||
+        rc_right_in1 < 0 || rc_right_in2 < 0 ||
+        rc_left_pwm < 0 || rc_right_pwm < 0) {
         RCLCPP_FATAL(node_->get_logger(),
-            "GPIO | Failed claiming motor pins: LDIR=%d RDIR=%d LPWM=%d RPWM=%d",
-            rc_left_dir, rc_right_dir, rc_left_pwm, rc_right_pwm);
+            "GPIO | Failed claiming motor pins: LIN1=%d LIN2=%d RIN1=%d RIN2=%d LPWM=%d RPWM=%d",
+            rc_left_in1, rc_left_in2, rc_right_in1, rc_right_in2, rc_left_pwm, rc_right_pwm);
         return;
     }
 
@@ -126,10 +132,22 @@ void GPIOController::load_initial_config_from_parameters()
 {
     ControllerConfig config;
 
-    (void)node_->get_parameter("pins.AENABLE", config.left_pwm_pin);
-    (void)node_->get_parameter("pins.APHASE", config.left_dir_pin);
-    (void)node_->get_parameter("pins.BENABLE", config.right_pwm_pin);
-    (void)node_->get_parameter("pins.BPHASE", config.right_dir_pin);
+    // SN754410 naming (preferred)
+    if (!node_->get_parameter("pins.APWM", config.left_pwm_pin)) {
+        // Backwards compatibility with previous naming
+        (void)node_->get_parameter("pins.AENABLE", config.left_pwm_pin);
+    }
+    if (!node_->get_parameter("pins.BPWM", config.right_pwm_pin)) {
+        (void)node_->get_parameter("pins.BENABLE", config.right_pwm_pin);
+    }
+    if (!node_->get_parameter("pins.AIN1", config.left_in1_pin)) {
+        (void)node_->get_parameter("pins.APHASE", config.left_in1_pin);
+    }
+    if (!node_->get_parameter("pins.BIN1", config.right_in1_pin)) {
+        (void)node_->get_parameter("pins.BPHASE", config.right_in1_pin);
+    }
+    (void)node_->get_parameter("pins.AIN2", config.left_in2_pin);
+    (void)node_->get_parameter("pins.BIN2", config.right_in2_pin);
 
     (void)node_->get_parameter("pins.ENCA_CH1", config.enc_left_a);
     (void)node_->get_parameter("pins.ENCB_CH1", config.enc_left_b);
@@ -372,15 +390,24 @@ void GPIOController::control_loop()
         const float right_pwm_percent = static_cast<float>(
             std::clamp(std::abs(right_terms.output) * 100.0, 0.0, 100.0));
 
-        const int rc_l_dir = lgGpioWrite(handle_, config.left_dir_pin, left_terms.output < 0.0 ? 1 : 0);
-        const int rc_r_dir = lgGpioWrite(handle_, config.right_dir_pin, right_terms.output < 0.0 ? 1 : 0);
+        const bool left_forward = left_terms.output > 0.0;
+        const bool left_reverse = left_terms.output < 0.0;
+        const bool right_forward = right_terms.output > 0.0;
+        const bool right_reverse = right_terms.output < 0.0;
+
+        const int rc_l_in1 = lgGpioWrite(handle_, config.left_in1_pin, left_forward ? 1 : 0);
+        const int rc_l_in2 = lgGpioWrite(handle_, config.left_in2_pin, left_reverse ? 1 : 0);
+        const int rc_r_in1 = lgGpioWrite(handle_, config.right_in1_pin, right_forward ? 1 : 0);
+        const int rc_r_in2 = lgGpioWrite(handle_, config.right_in2_pin, right_reverse ? 1 : 0);
         const int rc_l_pwm = lgTxPwm(handle_, config.left_pwm_pin, config.pwm_hz, left_pwm_percent, 0, 0);
         const int rc_r_pwm = lgTxPwm(handle_, config.right_pwm_pin, config.pwm_hz, right_pwm_percent, 0, 0);
 
-        if (rc_l_dir < 0 || rc_r_dir < 0 || rc_l_pwm < 0 || rc_r_pwm < 0) {
+        if (rc_l_in1 < 0 || rc_l_in2 < 0 ||
+            rc_r_in1 < 0 || rc_r_in2 < 0 ||
+            rc_l_pwm < 0 || rc_r_pwm < 0) {
             RCLCPP_WARN(node_->get_logger(),
-                "GPIO | lgpio write error dir=(%d,%d) pwm=(%d,%d)",
-                rc_l_dir, rc_r_dir, rc_l_pwm, rc_r_pwm);
+                "GPIO | lgpio write error in=(%d,%d,%d,%d) pwm=(%d,%d)",
+                rc_l_in1, rc_l_in2, rc_r_in1, rc_r_in2, rc_l_pwm, rc_r_pwm);
         }
 
         if (motor_state_pub_) {
