@@ -49,21 +49,23 @@ int main(int argc, char** argv)
     // Motor motor_b(h, BPHASE, BENABLE);
 
     std::cout << "MOTOR FORWARD 70%" << std::endl;
-    motor_a.forward(0.7f);
+    motor_a.forward(70.0f);
     pause(2000);
 
     std::cout << "MOTOR FORWARD 20%" << std::endl;
-    motor_a.forward(0.2f);
+    motor_a.forward(20.0f);
     pause(2000);
 
 
     std::cout << "MOTOR REVERSE 70%" << std::endl;
-    motor_a.reverse(0.7f);
+    motor_a.reverse(70.0f);
     pause(2000);
 
     std::cout << "MOTOR REVERSE 20%" << std::endl;
-    motor_a.set_speed(-0.2f);
+    motor_a.reverse(20.0f);
     pause(2000);
+    // motor_a.set_speed(-0.2f);
+    // pause(2000);
 
 
 
