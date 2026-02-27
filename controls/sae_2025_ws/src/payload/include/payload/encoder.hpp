@@ -5,9 +5,7 @@
 #include <atomic>
 #include <cstdint>
 
-// 4x quadrature decoder using lgpio alert callbacks (lgGpioClaimAlert +
-// lgGpioSetAlertsFuncEx).  Multiple encoders sharing the same chip handle are
-// supported via an internal static registry.
+// 4x quadrature decoder using lgpio per-pin alert callbacks.
 class QuadratureEncoder {
 public:
     // handle  — open lgpio chip handle
@@ -22,7 +20,7 @@ public:
     void    reset();            // zero the count
 
 private:
-    // Signature required by lgGpioAlertsFuncEx_t — no handle param
+    // Signature required by lgGpioAlertsFunc_t.
     static void alert_cb(int num_alerts, lgGpioAlert_p alerts, void* userdata);
     void on_edge(int gpio, int level);
 
