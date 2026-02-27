@@ -2,7 +2,7 @@
 
 Motor::Motor(int handle, int in1, int in2, float frequency, MotorType motor_type) {
     handle_ = handle;
-    frequency_ = frequency_;
+    frequency_ = frequency;
     motor_type_ = motor_type;
     in1_ = std::make_unique<GPIO>(handle_, in1, Direction::Output); //in1
     in2_ = std::make_unique<GPIO>(handle_, in2, Direction::Output); //in2
@@ -29,9 +29,11 @@ void Motor::forward(float duty) {
         case MotorType::LEFT:
             in1_->write_low();
             in2_->write_pwm(frequency_, duty, 0, 0);
+            break;
         case MotorType::RIGHT:
             in1_->write_pwm(frequency_, duty, 0, 0);
             in2_->write_low();
+            break;
     }
 }
 

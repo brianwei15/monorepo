@@ -36,14 +36,14 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    // Claim output pins before handing to Motor
-    for (auto [label, pin] : {std::pair{"AIN1",  AIN1},
-                               std::pair{"AIN2", AIN2},
-                               std::pair{"BIN1",  BIN1},
-                               std::pair{"BIN2", BIN2}}) {
-        int rc = lgGpioClaimOutput(h, 0, pin, 0);
-        printf("  ClaimOutput %-8s (BCM%2d): rc=%d\n", label, pin, rc);
-    }
+    // // Claim output pins before handing to Motor
+    // for (auto [label, pin] : {std::pair{"AIN1",  AIN1},
+    //                            std::pair{"AIN2", AIN2},
+    //                            std::pair{"BIN1",  BIN1},
+    //                            std::pair{"BIN2", BIN2}}) {
+    //     int rc = lgGpioClaimOutput(h, 0, pin, 0);
+    //     printf("  ClaimOutput %-8s (BCM%2d): rc=%d\n", label, pin, rc);
+    // }
 
     Motor motor_a(h, AIN1, AIN2, FREQ, MotorType::RIGHT);
     // Motor motor_b(h, BPHASE, BENABLE);
