@@ -6,7 +6,6 @@ Servo::Servo(int handle, int pin, int frequency) :
     servo_pin_(handle, pin, Direction::Output) { }
 
 void Servo::degree_setpoint(float degree) {
-    int clamped_degree = static_cast<int>(std::clamp<float>(degree, 0, 180));
     int pulse = angle_to_pulse(degree);
     servo_pin_.write_servo(pulse, frequency_, 0, 0); 
 }

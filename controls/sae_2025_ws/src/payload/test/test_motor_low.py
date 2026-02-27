@@ -18,15 +18,15 @@ import lgpio
 import time
 
 # --- Pin assignments (BCM numbering) ---
-A_IN1 = 16   # Motor A IN1 (PWM1)
-A_IN2 = 13   # Motor A IN2
+A_IN1 = 16  # Motor A IN1 (PWM1)
+A_IN2 = 13  # Motor A IN2
 
-B_IN1 = 15   # Motor B IN1 (PWM0)
-B_IN2 = 18   # Motor B IN2
+B_IN1 = 15  # Motor B IN1 (PWM0)
+B_IN2 = 18  # Motor B IN2
 
-PWM_HZ    = 500
-TEST_DUTY = 50.0   # 50%
-RUN_SECS  = 2.0
+PWM_HZ = 500
+TEST_DUTY = 50.0  # 50%
+RUN_SECS = 2.0
 
 
 def coast(h, in1, in2):
@@ -67,8 +67,12 @@ if h is None:
     exit(1)
 
 # --- Claim all four pins as outputs, initially LOW ---
-for label, pin in [("A_IN1", A_IN1), ("A_IN2", A_IN2),
-                   ("B_IN1", B_IN1), ("B_IN2", B_IN2)]:
+for label, pin in [
+    ("A_IN1", A_IN1),
+    ("A_IN2", A_IN2),
+    ("B_IN1", B_IN1),
+    ("B_IN2", B_IN2),
+]:
     rc = lgpio.gpio_claim_output(h, pin, 0)
     print(f"  ClaimOutput {label} (BCM{pin}): rc={rc}")
 

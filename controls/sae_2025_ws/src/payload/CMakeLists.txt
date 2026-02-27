@@ -58,6 +58,7 @@ else()
   add_executable(test_motor
     test/test_motor.cpp
     src/motor.cpp
+    src/servo.cpp
     src/gpio.cpp
   )
   target_include_directories(test_motor PRIVATE include ${LGPIO_INCLUDE_DIR})
