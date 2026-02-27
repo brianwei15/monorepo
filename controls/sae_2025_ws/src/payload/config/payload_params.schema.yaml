@@ -8,30 +8,56 @@ payload:
   
 
   pins:
+    LEFT_PWM:
+      type: int
+      default_value: 18
+      description: "Preferred: left motor SN754410 enable/PWM pin"
+    LEFT_IN1:
+      type: int
+      default_value: 15
+      description: "Preferred: left motor SN754410 IN1"
+    LEFT_IN2:
+      type: int
+      default_value: 14
+      description: "Preferred: left motor SN754410 IN2"
+    RIGHT_PWM:
+      type: int
+      default_value: 13
+      description: "Preferred: right motor SN754410 enable/PWM pin"
+    RIGHT_IN1:
+      type: int
+      default_value: 16
+      description: "Preferred: right motor SN754410 IN1"
+    RIGHT_IN2:
+      type: int
+      default_value: 20
+      description: "Preferred: right motor SN754410 IN2"
+
+    # Legacy A/B aliases retained for compatibility.
     APWM:
       type: int
       default_value: 13
-      description: "SN754410 Motor A enable/PWM pin"
+      description: "Legacy alias: SN754410 Motor A enable/PWM pin"
     AIN1:
       type: int
       default_value: 16
-      description: "SN754410 Motor A logic input IN1"
+      description: "Legacy alias: SN754410 Motor A logic input IN1"
     AIN2:
       type: int
       default_value: 20
-      description: "SN754410 Motor A logic input IN2"
+      description: "Legacy alias: SN754410 Motor A logic input IN2"
     BPWM:
       type: int
       default_value: 18
-      description: "SN754410 Motor B enable/PWM pin"
+      description: "Legacy alias: SN754410 Motor B enable/PWM pin"
     BIN1:
       type: int
       default_value: 15
-      description: "SN754410 Motor B logic input IN1"
+      description: "Legacy alias: SN754410 Motor B logic input IN1"
     BIN2:
       type: int
       default_value: 14
-      description: "SN754410 Motor B logic input IN2"
+      description: "Legacy alias: SN754410 Motor B logic input IN2"
     ENCA_CH1:
       type: int
       default_value: 0
@@ -109,19 +135,55 @@ payload:
     kp:
       type: double
       default_value: 0.02
-      description: "Velocity loop proportional gain"
+      description: "Shared velocity proportional gain applied to both wheels"
       validation:
         bounds<>: [0.0, 100000.0]
     ki:
       type: double
       default_value: 0.0
-      description: "Velocity loop integral gain"
+      description: "Shared velocity integral gain applied to both wheels"
       validation:
         bounds<>: [0.0, 100000.0]
     kd:
       type: double
       default_value: 0.0
-      description: "Velocity loop derivative gain"
+      description: "Shared velocity derivative gain applied to both wheels"
+      validation:
+        bounds<>: [0.0, 100000.0]
+    left_kp:
+      type: double
+      default_value: 0.02
+      description: "Left wheel velocity proportional gain override"
+      validation:
+        bounds<>: [0.0, 100000.0]
+    left_ki:
+      type: double
+      default_value: 0.0
+      description: "Left wheel velocity integral gain override"
+      validation:
+        bounds<>: [0.0, 100000.0]
+    left_kd:
+      type: double
+      default_value: 0.0
+      description: "Left wheel velocity derivative gain override"
+      validation:
+        bounds<>: [0.0, 100000.0]
+    right_kp:
+      type: double
+      default_value: 0.02
+      description: "Right wheel velocity proportional gain override"
+      validation:
+        bounds<>: [0.0, 100000.0]
+    right_ki:
+      type: double
+      default_value: 0.0
+      description: "Right wheel velocity integral gain override"
+      validation:
+        bounds<>: [0.0, 100000.0]
+    right_kd:
+      type: double
+      default_value: 0.0
+      description: "Right wheel velocity derivative gain override"
       validation:
         bounds<>: [0.0, 100000.0]
     i_clamp:

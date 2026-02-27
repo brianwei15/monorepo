@@ -51,7 +51,15 @@ private:
         double wheel_separation_m {0.12132};
         double max_wheel_rpm {120.0};
 
-        payload::control_math::PidConfig pid {
+        payload::control_math::PidConfig left_pid {
+            0.02,
+            0.0,
+            0.0,
+            1.0,
+            1.0,
+            1.0,
+        };
+        payload::control_math::PidConfig right_pid {
             0.02,
             0.0,
             0.0,

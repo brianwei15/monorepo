@@ -4,12 +4,14 @@
     controller: "GPIOController"
 
     pins:
-      APWM: 13
-      AIN1: 16
-      AIN2: 20
-      BPWM: 18
-      BIN1: 15
-      BIN2: 14
+      # Preferred explicit left/right mapping.
+      # On this hardware: A* pins are RIGHT motor, B* pins are LEFT motor.
+      LEFT_PWM: 18
+      LEFT_IN1: 15
+      LEFT_IN2: 14
+      RIGHT_PWM: 13
+      RIGHT_IN1: 16
+      RIGHT_IN2: 20
 
       ENCA_CH1: 0
       ENCA_CH2: 11
@@ -35,6 +37,12 @@
       kp: 0.02
       ki: 0.0
       kd: 0.0
+      left_kp: 0.02
+      left_ki: 0.0
+      left_kd: 0.0
+      right_kp: 0.02
+      right_ki: 0.0
+      right_kd: 0.0
       i_clamp: 1.0
       output_limit_norm: 1.0
       stop_deadband_rpm: 1.0

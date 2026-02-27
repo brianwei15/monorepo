@@ -132,22 +132,34 @@ void GPIOController::load_initial_config_from_parameters()
 {
     ControllerConfig config;
 
-    // SN754410 naming (preferred)
-    if (!node_->get_parameter("pins.APWM", config.left_pwm_pin)) {
-        // Backwards compatibility with previous naming
-        (void)node_->get_parameter("pins.AENABLE", config.left_pwm_pin);
+    // Preferred explicit left/right pin naming.
+    if (!node_->get_parameter("pins.LEFT_PWM", config.left_pwm_pin)) {
+        // Backwards compatibility with previous naming.
+        if (!node_->get_parameter("pins.BPWM", config.left_pwm_pin)) {
+            (void)node_->get_parameter("pins.BENABLE", config.left_pwm_pin);
+        }
     }
-    if (!node_->get_parameter("pins.BPWM", config.right_pwm_pin)) {
-        (void)node_->get_parameter("pins.BENABLE", config.right_pwm_pin);
+    if (!node_->get_parameter("pins.RIGHT_PWM", config.right_pwm_pin)) {
+        if (!node_->get_parameter("pins.APWM", config.right_pwm_pin)) {
+            (void)node_->get_parameter("pins.AENABLE", config.right_pwm_pin);
+        }
     }
-    if (!node_->get_parameter("pins.AIN1", config.left_in1_pin)) {
-        (void)node_->get_parameter("pins.APHASE", config.left_in1_pin);
+    if (!node_->get_parameter("pins.LEFT_IN1", config.left_in1_pin)) {
+        if (!node_->get_parameter("pins.BIN1", config.left_in1_pin)) {
+            (void)node_->get_parameter("pins.BPHASE", config.left_in1_pin);
+        }
     }
-    if (!node_->get_parameter("pins.BIN1", config.right_in1_pin)) {
-        (void)node_->get_parameter("pins.BPHASE", config.right_in1_pin);
+    if (!node_->get_parameter("pins.LEFT_IN2", config.left_in2_pin)) {
+        (void)node_->get_parameter("pins.BIN2", config.left_in2_pin);
     }
-    (void)node_->get_parameter("pins.AIN2", config.left_in2_pin);
-    (void)node_->get_parameter("pins.BIN2", config.right_in2_pin);
+    if (!node_->get_parameter("pins.RIGHT_IN1", config.right_in1_pin)) {
+        if (!node_->get_parameter("pins.AIN1", config.right_in1_pin)) {
+            (void)node_->get_parameter("pins.APHASE", config.right_in1_pin);
+        }
+    }
+    if (!node_->get_parameter("pins.RIGHT_IN2", config.right_in2_pin)) {
+        (void)node_->get_parameter("pins.AIN2", config.right_in2_pin);
+    }
 
     (void)node_->get_parameter("pins.ENCA_CH1", config.enc_left_a);
     (void)node_->get_parameter("pins.ENCB_CH1", config.enc_left_b);
@@ -167,12 +179,33 @@ void GPIOController::load_initial_config_from_parameters()
     (void)node_->get_parameter("kinematics.wheel_radius_m", config.wheel_radius_m);
     (void)node_->get_parameter("kinematics.wheel_separation_m", config.wheel_separation_m);
 
-    (void)node_->get_parameter("pid.kp", config.pid.kp);
-    (void)node_->get_parameter("pid.ki", config.pid.ki);
-    (void)node_->get_parameter("pid.kd", config.pid.kd);
-    (void)node_->get_parameter("pid.i_clamp", config.pid.i_clamp);
-    (void)node_->get_parameter("pid.output_limit_norm", config.pid.output_limit_norm);
-    (void)node_->get_parameter("pid.stop_deadband_rpm", config.pid.stop_deadband_rpm);
+    double shared_kp = config.left_pid.kp;
+    double shared_ki = config.left_pid.ki;
+    double shared_kd = config.left_pid.kd;
+    (void)node_->get_parameter("pid.kp", shared_kp);
+    (void)node_->get_parameter("pid.ki", shared_ki);
+    (void)node_->get_parameter("pid.kd", shared_kd);
+
+    config.left_pid.kp = shared_kp;
+    config.right_pid.kp = shared_kp;
+    config.left_pid.ki = shared_ki;
+    config.right_pid.ki = shared_ki;
+    config.left_pid.kd = shared_kd;
+    config.right_pid.kd = shared_kd;
+
+    (void)node_->get_parameter("pid.left_kp", config.left_pid.kp);
+    (void)node_->get_parameter("pid.left_ki", config.left_pid.ki);
+    (void)node_->get_parameter("pid.left_kd", config.left_pid.kd);
+    (void)node_->get_parameter("pid.right_kp", config.right_pid.kp);
+    (void)node_->get_parameter("pid.right_ki", config.right_pid.ki);
+    (void)node_->get_parameter("pid.right_kd", config.right_pid.kd);
+
+    (void)node_->get_parameter("pid.i_clamp", config.left_pid.i_clamp);
+    config.right_pid.i_clamp = config.left_pid.i_clamp;
+    (void)node_->get_parameter("pid.output_limit_norm", config.left_pid.output_limit_norm);
+    config.right_pid.output_limit_norm = config.left_pid.output_limit_norm;
+    (void)node_->get_parameter("pid.stop_deadband_rpm", config.left_pid.stop_deadband_rpm);
+    config.right_pid.stop_deadband_rpm = config.left_pid.stop_deadband_rpm;
     (void)node_->get_parameter("pid.velocity_alpha", config.velocity_alpha);
 
     (void)node_->get_parameter("control.loop_ms", config.loop_ms);
@@ -251,37 +284,79 @@ rcl_interfaces::msg::SetParametersResult GPIOController::on_parameters_set(
                 if (v < 0.0) {
                     return fail("pid.kp must be >= 0");
                 }
-                updated.pid.kp = v;
+                updated.left_pid.kp = v;
+                updated.right_pid.kp = v;
             } else if (name == "pid.ki") {
                 const double v = param.as_double();
                 if (v < 0.0) {
                     return fail("pid.ki must be >= 0");
                 }
-                updated.pid.ki = v;
+                updated.left_pid.ki = v;
+                updated.right_pid.ki = v;
             } else if (name == "pid.kd") {
                 const double v = param.as_double();
                 if (v < 0.0) {
                     return fail("pid.kd must be >= 0");
                 }
-                updated.pid.kd = v;
+                updated.left_pid.kd = v;
+                updated.right_pid.kd = v;
+            } else if (name == "pid.left_kp") {
+                const double v = param.as_double();
+                if (v < 0.0) {
+                    return fail("pid.left_kp must be >= 0");
+                }
+                updated.left_pid.kp = v;
+            } else if (name == "pid.left_ki") {
+                const double v = param.as_double();
+                if (v < 0.0) {
+                    return fail("pid.left_ki must be >= 0");
+                }
+                updated.left_pid.ki = v;
+            } else if (name == "pid.left_kd") {
+                const double v = param.as_double();
+                if (v < 0.0) {
+                    return fail("pid.left_kd must be >= 0");
+                }
+                updated.left_pid.kd = v;
+            } else if (name == "pid.right_kp") {
+                const double v = param.as_double();
+                if (v < 0.0) {
+                    return fail("pid.right_kp must be >= 0");
+                }
+                updated.right_pid.kp = v;
+            } else if (name == "pid.right_ki") {
+                const double v = param.as_double();
+                if (v < 0.0) {
+                    return fail("pid.right_ki must be >= 0");
+                }
+                updated.right_pid.ki = v;
+            } else if (name == "pid.right_kd") {
+                const double v = param.as_double();
+                if (v < 0.0) {
+                    return fail("pid.right_kd must be >= 0");
+                }
+                updated.right_pid.kd = v;
             } else if (name == "pid.i_clamp") {
                 const double v = param.as_double();
                 if (v < 0.0) {
                     return fail("pid.i_clamp must be >= 0");
                 }
-                updated.pid.i_clamp = v;
+                updated.left_pid.i_clamp = v;
+                updated.right_pid.i_clamp = v;
             } else if (name == "pid.output_limit_norm") {
                 const double v = param.as_double();
                 if (v <= 0.0 || v > 1.0) {
                     return fail("pid.output_limit_norm must be in (0, 1]");
                 }
-                updated.pid.output_limit_norm = v;
+                updated.left_pid.output_limit_norm = v;
+                updated.right_pid.output_limit_norm = v;
             } else if (name == "pid.stop_deadband_rpm") {
                 const double v = param.as_double();
                 if (v < 0.0) {
                     return fail("pid.stop_deadband_rpm must be >= 0");
                 }
-                updated.pid.stop_deadband_rpm = v;
+                updated.left_pid.stop_deadband_rpm = v;
+                updated.right_pid.stop_deadband_rpm = v;
             } else if (name == "pid.velocity_alpha") {
                 const double v = param.as_double();
                 if (v < 0.0 || v > 1.0) {
@@ -381,9 +456,9 @@ void GPIOController::control_loop()
             right_raw_rpm, right_filtered_rpm_, config.velocity_alpha);
 
         const auto left_terms = payload::control_math::pid_step(
-            setpoints.left_rpm, left_filtered_rpm_, dt_s, config.pid, left_pid_state_);
+            setpoints.left_rpm, left_filtered_rpm_, dt_s, config.left_pid, left_pid_state_);
         const auto right_terms = payload::control_math::pid_step(
-            setpoints.right_rpm, right_filtered_rpm_, dt_s, config.pid, right_pid_state_);
+            setpoints.right_rpm, right_filtered_rpm_, dt_s, config.right_pid, right_pid_state_);
 
         const float left_pwm_percent = static_cast<float>(
             std::clamp(std::abs(left_terms.output) * 100.0, 0.0, 100.0));
