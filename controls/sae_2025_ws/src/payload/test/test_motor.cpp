@@ -95,58 +95,61 @@ int main(int argc, char** argv)
 
     std::cout << "MOTOR A FORWARD 70%" << std::endl;
     motor_a->forward(70.0f);
-    pause(1000);
+    pause(2000);
 
     std::cout << "MOTOR A FORWARD 20%" << std::endl;
     motor_a->forward(20.0f);
-    pause(1000);
+    pause(2000);
 
 
     std::cout << "MOTOR A REVERSE 100%" << std::endl;
     motor_a->reverse(100.0f);
-    pause(1000);
+    pause(2000);
 
     std::cout << "MOTOR A REVERSE 50%" << std::endl;
     motor_a->reverse(50.0f);
-    pause(1000);
+    pause(2000);
 
     std::cout << "MOTOR A STOPPING:" << std::endl;
     motor_a->coast();
-    pause(1000);
+    pause(2000);
 
     std::cout << "MOTOR B FORWARD 70%" << std::endl;
     motor_b->forward(70.0f);
-    pause(1000);
+    pause(2000);
 
     std::cout << "MOTOR B FORWARD 20%" << std::endl;
     motor_b->forward(20.0f);
-    pause(1000);
+    pause(2000);
 
 
     std::cout << "MOTOR B REVERSE 100%" << std::endl;
     motor_b->reverse(100.0f);
-    pause(1000);
+    pause(2000);
 
     std::cout << "MOTOR B REVERSE 50%" << std::endl;
     motor_b->reverse(50.0f);
-    pause(1000);
+    pause(2000);
 
     std::cout << "Stopping motors" << std::endl;
     motor_a->coast();
     motor_b->coast();
-    pause(1000);
+    pause(2000);
 
     std::cout << "BOTH FORWARD" << std::endl;
     motor_a->forward(100.0f);
     motor_b->forward(100.0f);
-    pause(1000);
+    pause(2000);
 
 
-    std::cout << "BOTH FORWARD" << std::endl;
+    std::cout << "BOTH REVERSE" << std::endl;
     motor_a->reverse(100.0f);
     motor_b->reverse(100.0f);
-    pause(1000);
+    pause(2000);
 
+    std::cout << "Stopping motors" << std::endl;
+    motor_a->coast();
+    motor_b->coast();
     printf("\nDone.\n");
 
     pause(500);
