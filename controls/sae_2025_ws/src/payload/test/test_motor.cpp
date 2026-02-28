@@ -96,8 +96,8 @@ int main(int argc, char** argv)
     g_motor_b = motor_b.get();
     std::signal(SIGINT, on_sigint);
 
-    QuadratureEncoder enc_a(h, ENCA1, ENCA2, ENC_CPR);
-    QuadratureEncoder enc_b(h, ENCB1, ENCB2, ENC_CPR);
+    QuadratureEncoder enc_a(h, ENCA1, ENCA2, ENC_CPR, MotorType::RIGHT);
+    QuadratureEncoder enc_b(h, ENCB1, ENCB2, ENC_CPR, MotorType::LEFT);
 
     std::cout << "MOTOR A FORWARD 70%" << std::endl;
     motor_a->forward(70.0f);

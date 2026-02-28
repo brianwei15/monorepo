@@ -13,11 +13,11 @@
       RIGHT_IN1: 20
       RIGHT_IN2: 16
 
-      ENCA_CH1: 0
-      ENCA_CH2: 11
-      ENCB_CH1: 9
-      ENCB_CH2: 10
-      SERVO: 14
+      ENCA_CH1: 5
+      ENCA_CH2: 6
+      ENCB_CH1: 10
+      ENCB_CH2: 9
+      SERVO: 23
 
     motor:
       pwm_frequency: 500.0

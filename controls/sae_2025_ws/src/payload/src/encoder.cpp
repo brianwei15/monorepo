@@ -12,8 +12,9 @@ static const int8_t QEM[16] = {
      0, +1, -1,  0,
 };
 
-QuadratureEncoder::QuadratureEncoder(int handle, int pin_a, int pin_b, int cpr)
-: handle_(handle), pin_a_(pin_a), pin_b_(pin_b), cpr_(cpr)
+// TODO: Use GPIO classes instead
+QuadratureEncoder::QuadratureEncoder(int handle, int pin_a, int pin_b, int cpr, MotorType motor_type)
+: handle_(handle), pin_a_(pin_a), pin_b_(pin_b), cpr_(cpr), motor_type_(motor_type)
 {
     // Claim both pins for edge alerts (supersedes any prior input claim)
     lgGpioClaimAlert(handle_, 0, LG_BOTH_EDGES, pin_a_, -1);
@@ -59,7 +60,9 @@ void QuadratureEncoder::on_edge(int gpio, int level)
     int b = (gpio == pin_b_) ? level : lgGpioRead(handle_, pin_b_);
     int curr_ab = (a << 1) | b;
 
-    count_.fetch_add(QEM[(prev_ab_ << 2) | curr_ab], std::memory_order_relaxed);
+    int8_t step = QEM[(prev_ab_ << 2) | curr_ab];
+    if (motor_type_ == MotorType::LEFT) step = -step;
+    count_.fetch_add(step, std::memory_order_relaxed);
     prev_ab_ = curr_ab;
 }
 

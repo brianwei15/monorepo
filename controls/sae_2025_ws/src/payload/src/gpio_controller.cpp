@@ -89,9 +89,9 @@ void GPIOController::initialize(std::shared_ptr<rclcpp::Node> node)
     }
 
     left_encoder_ = std::make_unique<QuadratureEncoder>(
-        handle_, config.enc_left_a, config.enc_left_b, config.encoder_output_cpr);
+        handle_, config.enc_left_a, config.enc_left_b, config.encoder_output_cpr, MotorType::LEFT);
     right_encoder_ = std::make_unique<QuadratureEncoder>(
-        handle_, config.enc_right_a, config.enc_right_b, config.encoder_output_cpr);
+        handle_, config.enc_right_a, config.enc_right_b, config.encoder_output_cpr, MotorType::RIGHT);
 
     prev_left_count_ = left_encoder_->count();
     prev_right_count_ = right_encoder_->count();
