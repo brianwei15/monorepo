@@ -161,10 +161,10 @@ void GPIOController::load_initial_config_from_parameters()
         (void)node_->get_parameter("pins.AIN2", config.right_in2_pin);
     }
 
-    (void)node_->get_parameter("pins.ENCA_CH1", config.enc_left_a);
-    (void)node_->get_parameter("pins.ENCB_CH1", config.enc_left_b);
-    (void)node_->get_parameter("pins.ENCA_CH2", config.enc_right_a);
-    (void)node_->get_parameter("pins.ENCB_CH2", config.enc_right_b);
+    (void)node_->get_parameter("pins.ENCA_CH1", config.enc_right_a);
+    (void)node_->get_parameter("pins.ENCA_CH2", config.enc_right_b);
+    (void)node_->get_parameter("pins.ENCB_CH1", config.enc_left_a);
+    (void)node_->get_parameter("pins.ENCB_CH2", config.enc_left_b);
 
     double pwm_frequency = static_cast<double>(config.pwm_hz);
     (void)node_->get_parameter("motor.pwm_frequency", pwm_frequency);
