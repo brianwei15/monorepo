@@ -22,10 +22,15 @@ static constexpr int SN_BIN2  = 14;
 
 
 //ENCODER PINS
-static constexpr int ENCA1  = 10;
-static constexpr int ENCA2  = 9;
-static constexpr int ENCB1  = 5;
-static constexpr int ENCB2  = 6;
+// static constexpr int ENCA1  = 10;
+// static constexpr int ENCA2  = 9;
+// static constexpr int ENCB1  = 5;
+// static constexpr int ENCB2  = 6;
+
+static constexpr int ENCA1  = 5;
+static constexpr int ENCA2  = 6;
+static constexpr int ENCB1  = 10;
+static constexpr int ENCB2  = 9;
 
 
 constexpr int SERVO = 14;
