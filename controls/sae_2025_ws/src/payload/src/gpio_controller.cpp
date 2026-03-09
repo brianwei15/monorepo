@@ -64,6 +64,8 @@ void GPIOController::initialize(std::shared_ptr<rclcpp::Node> node)
         config = config_;
     }
 
+    RCLCPP_INFO(node_->get_logger(), "LEFT PINS: PWM: %d, IN1: %d, IN2: %d", config.left_pwm_pin, config.left_in1_pin, config.left_in2_pin);
+    RCLCPP_INFO(node_->get_logger(), "RIGHT PINS: PWM: %d, IN1: %d, IN2: %d", config.right_pwm_pin, config.right_in1_pin, config.right_in2_pin);
     const int rc_left_in1 = lgGpioClaimOutput(handle_, 0, config.left_in1_pin, 0);
     const int rc_left_in2 = lgGpioClaimOutput(handle_, 0, config.left_in2_pin, 0);
     const int rc_right_in1 = lgGpioClaimOutput(handle_, 0, config.right_in1_pin, 0);
