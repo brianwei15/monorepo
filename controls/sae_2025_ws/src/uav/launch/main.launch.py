@@ -35,17 +35,15 @@ def launch_setup(context, *args, **kwargs):
     # Load launch parameters from the YAML file.
     params = load_launch_parameters()
     mission_name = params.get("mission_name", "basic")
-    uav_debug = str(params.get("uav_debug", "false"))
-    vision_debug = str(params.get("vision_debug", "false"))
-    use_camera = str(params.get("use_camera", "true"))
-    save_vision = str(params.get("save_vision", "false"))
-    servo_only = str(params.get("servo_only", "false"))
+    uav_debug_bool = params.get("uav_debug", False)
+    vision_debug_bool = params.get("vision_debug", False)
+    use_camera_bool = params.get("use_camera", True)
+    save_vision_milliseconds = params.get("save_vision_milliseconds", 0)
+    save_vision_bool = save_vision_milliseconds > 0
+    servo_only_bool = params.get("servo_only", False)
 
-    sim_bool = str(params.get("sim", "false")).lower() == "true"
-    run_mission_bool = str(params.get("run_mission", "true")).lower() == "true"
-    vision_debug_bool = vision_debug.lower() == "true"
-    save_vision_bool = save_vision.lower() == "true"
-    use_camera_bool = use_camera.lower() == "true"
+    sim_bool = params.get("sim", False)
+    auto_launch = params.get("auto_launch", True)
 
     """
     Airframe ID handling
@@ -64,7 +62,11 @@ def launch_setup(context, *args, **kwargs):
             raise ValueError(f"Unknown airframe name: {airframe_id}")
 
     custom_airframe_model = params.get("custom_airframe_model", "")
-    camera_offsets = params.get("camera_offsets", [0, 0, 0])
+    camera_offsets = params.get("camera_offsets", [0.0, 0.0, 0.0])
+    if len(camera_offsets) != 3:
+        raise ValueError(
+            f"camera_offsets must have exactly 3 values. Received: {camera_offsets}"
+        )
 
     # Build the mission YAML file path using the mission name.
     YAML_PATH = os.path.join(
@@ -77,11 +79,22 @@ def launch_setup(context, *args, **kwargs):
     vision_node_actions = []
     if use_camera_bool:
         vision_node_actions.append(
-            Node(package="uav", executable="camera", name="camera", output="screen")
+            Node(
+                package="uav",
+                executable="camera",
+                name="camera",
+                output="screen",
+                parameters=[
+                    {
+                        "debug": vision_debug_bool,
+                        "save_vision_milliseconds": save_vision_milliseconds,
+                    }
+                ],
+            )
         )
 
-        for node in extract_vision_nodes(YAML_PATH):
-            vision_nodes.append(node)
+        vision_nodes = sorted(extract_vision_nodes(YAML_PATH))
+        for node in vision_nodes:
             # Convert CamelCase node names to snake_case executable names.
             s1 = re.sub("(.)([A-Z][a-z]+)", r"\1_\2", node)
             exe_name = re.sub("([a-z0-9])([A-Z])", r"\1_\2", s1).lower()
@@ -102,7 +115,7 @@ def launch_setup(context, *args, **kwargs):
             )
 
         # Clear vision node actions if none are found.
-        if len(vision_nodes) == 0:
+        if len(vision_nodes) == 0 and not save_vision_bool:
             vision_node_actions = []
 
         if not sim_bool:
@@ -151,21 +164,21 @@ def launch_setup(context, *args, **kwargs):
         f"Launching a {vehicle_class.name} with airframe ID {airframe_id}, using model {model}"
     )
 
-    camera_offsets_str = ",".join(str(offset) for offset in camera_offsets)
-    mission_cmd = [
-        "ros2",
-        "run",
-        "uav",
-        "mission",
-        uav_debug,
-        YAML_PATH,
-        servo_only,
-        camera_offsets_str,
-        vehicle_class.name,
-        ",".join(vision_nodes),
-    ]
-    mission = ExecuteProcess(
-        cmd=mission_cmd, output="screen", emulate_tty=True, name="mission"
+    mission = Node(
+        package="uav",
+        executable="mission",
+        name="mission",
+        output="screen",
+        parameters=[
+            {
+                "debug": uav_debug_bool,
+                "mode_map": YAML_PATH,
+                "servo_only": servo_only_bool,
+                "camera_offsets": camera_offsets,
+                "vehicle_class": vehicle_class.name,
+                **({"vision_nodes": vision_nodes} if vision_nodes else {}),
+            }
+        ],
     )
 
     start_mission_trigger = ExecuteProcess(
@@ -297,11 +310,11 @@ def launch_setup(context, *args, **kwargs):
                     )
                 )
             ),
+            mission,
         ]
-        if run_mission_bool:
+        if auto_launch:
             actions.extend(
                 [
-                    mission,
                     RegisterEventHandler(
                         OnProcessIO(
                             target_action=px4_sitl,
@@ -321,18 +334,16 @@ def launch_setup(context, *args, **kwargs):
             *vision_node_actions,
             LogInfo(msg="Vision nodes started."),
             middleware,
+            mission,
         ]
-        if run_mission_bool:
-            actions.extend(
-                [
-                    mission,
-                    RegisterEventHandler(
-                        OnProcessIO(
-                            target_action=middleware,
-                            on_stderr=make_io_handler("middleware"),
-                        )
-                    ),
-                ]
+        if auto_launch:
+            actions.append(
+                RegisterEventHandler(
+                    OnProcessIO(
+                        target_action=middleware,
+                        on_stderr=make_io_handler("middleware"),
+                    )
+                )
             )
     return actions
 
