@@ -72,7 +72,9 @@ class MotorStatePlotter(Node):
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Plot payload MotorState RPM traces")
-    parser.add_argument("--topic", default="/payload_0/motor_state", help="MotorState topic")
+    parser.add_argument(
+        "--topic", default="/payload_0/motor_state", help="MotorState topic"
+    )
     parser.add_argument(
         "--window-sec",
         type=float,
@@ -98,10 +100,10 @@ def main() -> None:
     ax.set_ylabel("RPM")
     ax.grid(True, alpha=0.3)
 
-    left_set_line, = ax.plot([], [], "b--", linewidth=1.5, label="left set")
-    left_meas_line, = ax.plot([], [], "b", linewidth=2.0, label="left meas")
-    right_set_line, = ax.plot([], [], "r--", linewidth=1.5, label="right set")
-    right_meas_line, = ax.plot([], [], "r", linewidth=2.0, label="right meas")
+    (left_set_line,) = ax.plot([], [], "b--", linewidth=1.5, label="left set")
+    (left_meas_line,) = ax.plot([], [], "b", linewidth=2.0, label="left meas")
+    (right_set_line,) = ax.plot([], [], "r--", linewidth=1.5, label="right set")
+    (right_meas_line,) = ax.plot([], [], "r", linewidth=2.0, label="right meas")
     ax.legend(loc="upper right")
 
     def update(_frame):
