@@ -56,7 +56,8 @@ def load_sim_parameters(
     logger: logging.Logger,
     competition_name: str = "",
     mission_stage: str = "",
-) -> str:
+) -> tuple[dict, Path]:
+
     """
     Find simulation configuration file, checking source location first (for development),
     then falling back to installed location.
