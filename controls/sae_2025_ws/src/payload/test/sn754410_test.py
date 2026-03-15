@@ -5,16 +5,16 @@ import time
 # Pin Definitions (BCM)
 # ----------------------
 
-A_PWM = 12
-A_IN1 = 5
-A_IN2 = 6
+A_PWM = 18
+A_IN1 = 15
+A_IN2 = 14
 
 B_PWM = 13
-B_IN1 = 20
-B_IN2 = 21
+B_IN1 = 16
+B_IN2 = 20
 
 PWM_FREQ = 1000  # Hz
-PWM_DUTY = 50    # Percent (0–100)
+PWM_DUTY = 50  # Percent (0–100)
 
 # ----------------------
 # Setup
@@ -34,20 +34,24 @@ for pin in [A_PWM, B_PWM]:
 # Motor Control Functions
 # ----------------------
 
+
 def motor_forward(pwm, in1, in2):
     lgpio.gpio_write(h, in1, 1)
     lgpio.gpio_write(h, in2, 0)
     lgpio.tx_pwm(h, pwm, PWM_FREQ, PWM_DUTY)
+
 
 def motor_reverse(pwm, in1, in2):
     lgpio.gpio_write(h, in1, 0)
     lgpio.gpio_write(h, in2, 1)
     lgpio.tx_pwm(h, pwm, PWM_FREQ, PWM_DUTY)
 
+
 def motor_stop(pwm, in1, in2):
     lgpio.tx_pwm(h, pwm, PWM_FREQ, 0)  # stop PWM
     lgpio.gpio_write(h, in1, 0)
-    lgpio.gpio_write(h, in2, 0)        # coast
+    lgpio.gpio_write(h, in2, 0)  # coast
+
 
 # ----------------------
 # Test Sequence
