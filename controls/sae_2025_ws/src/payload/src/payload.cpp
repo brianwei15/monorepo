@@ -18,12 +18,50 @@ Payload::Payload(const std::string& payload_name)
 
 void Payload::init() {
     controller_->initialize(shared_from_this());
+
+    std::string timed_drive_name = "/" + payload_name_ + "/timed_drive";
+    timed_drive_srv_ = this->create_service<payload_interfaces::srv::TimedDrive>(
+        timed_drive_name,
+        std::bind(&Payload::timed_drive_callback, this,
+                  std::placeholders::_1, std::placeholders::_2));
+    RCLCPP_INFO(this->get_logger(), "Timed drive service: %s", timed_drive_name.c_str());
 }
 
 void Payload::drive_callback(const payload_interfaces::msg::DriveCommand::SharedPtr msg) {
-    double linear_v = msg->linear;
-    double angular_v = msg->angular;
-    controller_->drive_command(linear_v, angular_v);
+    if (timed_override_active_.load()) {
+        return;
+    }
+    controller_->drive_command(msg->linear, msg->angular);
+}
+
+void Payload::clear_timed_override() {
+    if (timed_drive_timer_) {
+        timed_drive_timer_->cancel();
+        timed_drive_timer_.reset();
+    }
+    controller_->drive_command(0.0, 0.0);
+    timed_override_active_.store(false);
+}
+
+void Payload::timed_drive_callback(
+    const std::shared_ptr<payload_interfaces::srv::TimedDrive::Request> request,
+    std::shared_ptr<payload_interfaces::srv::TimedDrive::Response> response) {
+    if (request->duration_sec <= 0.0) {
+        response->success = false;
+        response->message = "duration_sec must be > 0";
+        return;
+    }
+    if (timed_drive_timer_) {
+        timed_drive_timer_->cancel();
+        timed_drive_timer_.reset();
+    }
+    timed_override_active_.store(true);
+    controller_->drive_command(request->linear, request->angular);
+    timed_drive_timer_ = this->create_wall_timer(
+        std::chrono::duration<double>(request->duration_sec),
+        [this]() { clear_timed_override(); });
+    response->success = true;
+    response->message = "Timed drive started";
 }
 
 
