@@ -36,6 +36,7 @@ class WorldNode(Node, ABC):
         competition_name: str,
         output_filename: Optional[str] = None,
         seed: Optional[int] = None,
+        entities: Optional[dict] = None,
     ):
         """
         Initialize the WorldNode.
@@ -61,6 +62,8 @@ class WorldNode(Node, ABC):
         self.output_dir = Path.home() / ".simulation-gazebo" / "worlds"
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.output_path = self.output_dir / output_filename
+
+        self.entities = entities or {}
 
         self.get_logger().info(
             f"Initializing world node for competition: {competition_name}"
@@ -195,6 +198,9 @@ class WorldNode(Node, ABC):
 
         return True if dynamic generation is successful, False otherwise
         """
+        for name, cfg in self.entities.items():
+            self.get_logger().info(f"Spawning entity: {name}")
+            self.spawn_entity(name, cfg)
         return True
 
     def get_world_path(self) -> Path:

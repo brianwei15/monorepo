@@ -17,3 +17,8 @@ world:
     #   path_to_sdf: "~/.simulation-gazebo/models/payload/model.sdf"
     #   position: [0.0, 0.0, 0.0]
     #   rpy: [0.0, 0.0, 0.0]
+    # entities:  # misc entities not specific to SAE (e.g. debug markers, extra props)
+    #   my_marker:
+    #     path_to_sdf: "~/.simulation-gazebo/models/my_marker/model.sdf"
+    #     position: [0.0, 0.0, 0.0]
+    #     rpy: [0.0, 0.0, 0.0]

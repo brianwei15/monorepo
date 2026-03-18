@@ -21,9 +21,10 @@ class SAEWorldNode(WorldNode):
         dlz: Optional[dict] = None,
         payload_0: Optional[dict] = None,
         payload_1: Optional[dict] = None,
+        **kwargs,
     ):
         super().__init__(
-            competition_name="sae", output_filename=output_filename, seed=seed
+            competition_name="sae", output_filename=output_filename, seed=seed, **kwargs
         )
         self.world_name = template_world
         self.vehicle_pose = vehicle_pose
