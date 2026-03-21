@@ -17,7 +17,10 @@ class CustomWorldNode(WorldNode):
         **kwargs,
     ):
         super().__init__(
-            competition_name="custom", output_filename=output_filename, seed=seed, **kwargs
+            competition_name="custom",
+            output_filename=output_filename,
+            seed=seed,
+            **kwargs,
         )
         self.world_name = template_world
         # defaults to 0.6 if not provided

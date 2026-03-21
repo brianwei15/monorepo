@@ -15,7 +15,6 @@ from rclpy.impl.rcutils_logger import RcutilsLogger
 from rclpy.node import Node
 from sim.utils import camel_to_snake, find_package_resource, copy_models_to_gazebo
 import xml.etree.ElementTree as ET
-import logging
 import random
 from std_srvs.srv import Trigger
 from ros_gz_interfaces.srv import SpawnEntity
