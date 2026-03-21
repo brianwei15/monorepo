@@ -1,7 +1,8 @@
 /**:
   ros__parameters:
     # Name of the controller plugin to instantiate.
-    controller: "GPIOController" # Set to 'SimController' when running in simulation
+    # Set to 'SimController' in sim, or 'GPIOController' in real
+    controller: "GPIOController"
 
     pins:
       # Preferred explicit left/right mapping.
