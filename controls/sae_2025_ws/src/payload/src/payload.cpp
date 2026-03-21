@@ -1,7 +1,8 @@
 #include "payload/payload.hpp"
 
 Payload::Payload(const std::string& payload_name)
-: rclcpp::Node(payload_name) {
+: rclcpp::Node(payload_name),
+  controller_loader_("payload", "Controller") {
     payload_name_ = this->get_name(); //allows for override from launch file node name
 
     payload_params_listener_ = std::make_shared<payload::ParamListener>(this);
@@ -12,33 +13,55 @@ Payload::Payload(const std::string& payload_name)
         ros_drive_topic, 10, std::bind(&Payload::drive_callback, this, std::placeholders::_1));
     RCLCPP_INFO(this->get_logger(), "Listening on: %s", ros_drive_topic.c_str());
 
-    std::string ros_camera_topic = "/" + payload_name_ + "/camera";
-    ros_camera_publisher_ =  this->create_publisher<sensor_msgs::msg::Image>(ros_camera_topic, 10);
-    RCLCPP_INFO(this->get_logger(), "Publishing ros camera: %s", ros_camera_topic.c_str());
+    controller_ = controller_loader_.createSharedInstance(payload_params_.controller);
+}
 
-    std::string ros_camera_info_topic = "/" + payload_name_ + "/camera_info";
-    ros_camera_info_publisher_ = this->create_publisher<sensor_msgs::msg::CameraInfo>(ros_camera_info_topic, 10);
-    RCLCPP_INFO(this->get_logger(), "Publishing ros camera_info: %s", ros_camera_info_topic.c_str());
+void Payload::init() {
+    controller_->initialize(shared_from_this());
 
-    if (payload_params_.controller == "sim") { //move to enum
-        std::string gz_drive_topic = "/model/" + payload_name_ + "/cmd_vel";
-        std::string gz_camera_topic = "/world/" + payload_params_.sim.world_name + "/model/" + payload_name_ + "/link/camera_link/sensor/camera/image";
-        std::string gz_camera_info_topic = "/world/" + payload_params_.sim.world_name + "/model/" + payload_name_ + "/link/camera_link/sensor/camera/camera_info";
-        controller_ = std::make_shared<SimController>(
-            gz_drive_topic,
-            gz_camera_topic,
-            gz_camera_info_topic,
-            ros_camera_publisher_,
-            ros_camera_info_publisher_,
-            this->get_logger()
-        );
-    }
+    std::string timed_drive_name = "/" + payload_name_ + "/timed_drive";
+    timed_drive_srv_ = this->create_service<payload_interfaces::srv::TimedDrive>(
+        timed_drive_name,
+        std::bind(&Payload::timed_drive_callback, this,
+                  std::placeholders::_1, std::placeholders::_2));
+    RCLCPP_INFO(this->get_logger(), "Timed drive service: %s", timed_drive_name.c_str());
 }
 
 void Payload::drive_callback(const payload_interfaces::msg::DriveCommand::SharedPtr msg) {
-    double linear_v = msg->linear;
-    double angular_v = msg->angular;
-    controller_->drive_command(linear_v, angular_v);
+    if (timed_override_active_.load()) {
+        return;
+    }
+    controller_->drive_command(msg->linear, msg->angular);
+}
+
+void Payload::clear_timed_override() {
+    if (timed_drive_timer_) {
+        timed_drive_timer_->cancel();
+        timed_drive_timer_.reset();
+    }
+    controller_->drive_command(0.0, 0.0);
+    timed_override_active_.store(false);
+}
+
+void Payload::timed_drive_callback(
+    const std::shared_ptr<payload_interfaces::srv::TimedDrive::Request> request,
+    std::shared_ptr<payload_interfaces::srv::TimedDrive::Response> response) {
+    if (request->duration_sec <= 0.0) {
+        response->success = false;
+        response->message = "duration_sec must be > 0";
+        return;
+    }
+    if (timed_drive_timer_) {
+        timed_drive_timer_->cancel();
+        timed_drive_timer_.reset();
+    }
+    timed_override_active_.store(true);
+    controller_->drive_command(request->linear, request->angular);
+    timed_drive_timer_ = this->create_wall_timer(
+        std::chrono::duration<double>(request->duration_sec),
+        [this]() { clear_timed_override(); });
+    response->success = true;
+    response->message = "Timed drive started";
 }
 
 
