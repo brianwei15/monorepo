@@ -148,12 +148,13 @@ class UAV(ABC):
             },
         )
 
-    def disarm(self):
+    def disarm(self, force=False):
         """Send a disarm command to the UAV."""
         self._send_vehicle_command(
             VehicleCommand.VEHICLE_CMD_COMPONENT_ARM_DISARM,
-            params={"param1": 0.0},  # param1=0 => Disarm
+            params={"param1": 0.0, **({"param2": 21196.0} if force else {})},
         )
+
         self.node.get_logger().info("Sent Disarm Command")
 
     def engage_offboard_mode(self):

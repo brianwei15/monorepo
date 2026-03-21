@@ -1,5 +1,8 @@
 from rclpy.node import Node
-from px4_msgs.msg import VtolVehicleStatus, VehicleCommand
+from px4_msgs.msg import (
+    VtolVehicleStatus,
+    VehicleCommand,
+)
 from rclpy.qos import (
     QoSProfile,
     QoSReliabilityPolicy,
@@ -22,6 +25,8 @@ class VTOL(UAV):
         # Initialize VTOL-specific attributes before calling super().__init__
         self.vehicle_type = None  # 'MC' or 'FW' from VtolVehicleStatus
         self.vtol_vehicle_status = None
+        self._fw_takeoff_phase = 0  # state machine phase for FW takeoff
+        self.attempted_takeoff = False
 
         super().__init__(node, takeoff_amount, DEBUG, camera_offsets)
 
@@ -52,72 +57,19 @@ class VTOL(UAV):
             longitude: float = float('nan'), # Longitude (in GPS coords)
             altitude: float = float('nan'), # Altitude (in meters)
         """
-        if self.vtol_vehicle_status is None:
-            self.node.get_logger().info("FW takeoff: Vehicle status not available yet.")
-            return False
-
-        elif (
-            self.vtol_vehicle_status.vehicle_vtol_state
-            == VtolVehicleStatus.VEHICLE_VTOL_STATE_MC
-        ):
-            self.vtol_transition_to("FW", immediate=False)
-            self.node.get_logger().info(
-                "FW takeoff Step 1: requested VTOL transition to FW."
-            )
-            return False
-
-        elif (
-            self.vtol_vehicle_status.vehicle_vtol_state
-            == VtolVehicleStatus.VEHICLE_VTOL_STATE_TRANSITION_TO_FW
-        ):
-            self.node.get_logger().info(
-                "FW takeoff Step 2: transition to FW in progress."
-            )
-            return False
-
-        elif (
-            self.vtol_vehicle_status.vehicle_vtol_state
-            == VtolVehicleStatus.VEHICLE_VTOL_STATE_FW
-        ):
-            self.node.get_logger().info("FW takeoff Step 3: transition to FW complete.")
-            if not self.attempted_takeoff:
-                self.attempted_takeoff = True
-
-            lat = self.global_position.lat
-            lon = self.global_position.lon
-            alt = self.global_position.alt
-            self.node.get_logger().info(f"Current GPS: {lat}, {lon}, {alt}")
-
-            if np.isnan(latitude) or np.isnan(longitude) or np.isnan(altitude):
-                self.node.get_logger().info("Takeoff Destination GPS: Auto Calculated")
-            else:
-                self.node.get_logger().info(
-                    f"Takeoff Destination GPS: {latitude}, {longitude}, {altitude}"
-                )
-
+        if not self.attempted_takeoff:
             self._send_vehicle_command(
                 VehicleCommand.VEHICLE_CMD_NAV_TAKEOFF,
                 params={
-                    "param1": fw_tko_pitch,  # fw_tko_pitch min (minimum pitch during takeoff)
-                    "param4": yaw,  # Yaw angle
-                    "param5": latitude,  # Latitude (in GPS coords)
-                    "param6": longitude,  # Longitude (in GPS coords)
-                    "param7": altitude,  # Altitude (in meters)
+                    "param1": fw_tko_pitch,
+                    "param4": yaw,
+                    "param5": latitude,
+                    "param6": longitude,
+                    "param7": altitude,
                 },
             )
-            self.node.get_logger().info("FW takeoff Step 3: NAV_TAKEOFF sent.")
-            return True
-        elif (
-            self.vtol_vehicle_status.vehicle_vtol_state
-            == VtolVehicleStatus.VEHICLE_VTOL_STATE_TRANSITION_TO_MC
-        ):
-            self.node.get_logger().error(
-                "FW takeoff: Transition to MC in progress during horizontal takeoff."
-            )
-            return False
-        else:
-            self.node.get_logger().warn("FW takeoff Step 0: unknown vehicle state.")
-            return False
+            self.attempted_takeoff = True
+            self.node.get_logger().info("FW takeoff command sent.")
 
     def vtol_transition_to(self, vtol_state, immediate=False):
         """

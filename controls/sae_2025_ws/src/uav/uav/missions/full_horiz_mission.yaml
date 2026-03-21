@@ -27,5 +27,5 @@ GPS2:
   transitions:
     complete: land
 
-land: 
+land:
   class: uav.autonomous_modes.LandingMode

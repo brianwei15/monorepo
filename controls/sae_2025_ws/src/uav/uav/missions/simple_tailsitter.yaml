@@ -15,7 +15,7 @@ transition_to_fw:
 GPS:
   class: uav.autonomous_modes.NavGPSMode
   params:
-    coordinates: "[[(0, 30, -10), 2, 'LOCAL']]"
+    coordinates: "[[(30, 30, -10), 2, 'LOCAL']]"
     margin: "30"
   transitions:
     complete: transition_to_mc
