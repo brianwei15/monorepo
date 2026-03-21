@@ -3,12 +3,13 @@ start:
   params:
     takeoff_type: horizontal
   transitions:
-    complete: transition_to_mc
+    complete: GPS
 
-transition_to_mc:
-  class: uav.autonomous_modes.TransitionMode
+GPS:
+  class: uav.autonomous_modes.NavGPSMode
   params:
-    to_mode: MC
+    coordinates: '[((100, 100, -15), 2, "LOCAL")]'
+    margin: '30'
   transitions:
     complete: land
 
