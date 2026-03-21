@@ -267,6 +267,29 @@ def launch_setup(context, *args, **kwargs):
         vehicle_pose_str = ",".join(str(pose) for pose in vehicle_pose)
         logger.info(f"Spawning vehicle at pose: {vehicle_pose_str}")
 
+        world_params_dict = sim_stage_params["world"]["params"]
+        payload_names = [
+            name
+            for name in ("payload_0", "payload_1")
+            if world_params_dict.get(name) is not None
+        ]
+        logger.info(f"Detected payloads from config: {payload_names}")
+
+        payload_launch_actions = []
+        for payload_name in payload_names:
+            payload_launch_actions.append(
+                IncludeLaunchDescription(
+                    PythonLaunchDescriptionSource(
+                        os.path.join(
+                            get_package_share_directory("payload"),
+                            "launch",
+                            "payload.launch.py",
+                        )
+                    ),
+                    launch_arguments={"payload_name": payload_name}.items(),
+                )
+            )
+
         # Prepare sim launch arguments with all simulation parameters
         sim_launch_args = {
             "model": model,
@@ -304,6 +327,7 @@ def launch_setup(context, *args, **kwargs):
                             px4_sitl,
                             *vision_node_actions,
                             middleware,
+                            *payload_launch_actions,
                         ]
                         if b"Successfully generated world file:" in event.text
                         else None
