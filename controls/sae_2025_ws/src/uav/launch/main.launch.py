@@ -286,7 +286,10 @@ def launch_setup(context, *args, **kwargs):
                             "payload.launch.py",
                         )
                     ),
-                    launch_arguments={"payload_name": payload_name}.items(),
+                    launch_arguments={
+                        "payload_name": payload_name,
+                        "controller": "SimController",
+                    }.items(),
                 )
             )
 
