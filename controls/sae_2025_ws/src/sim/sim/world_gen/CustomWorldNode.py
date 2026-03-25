@@ -41,16 +41,16 @@ class CustomWorldNode(WorldNode):
         req.entity_factory = payload_0.to_entity_factory_msg()
         self.spawn_entity_client.call_async(req)
 
-        payload_1 = Entity(
-            name="payload_1",
-            path_to_sdf="~/.simulation-gazebo/models/payload/model.sdf",
-            position=(0.8, 0.8, 0.5),
-            rpy=(0.0, 0.0, 0.0),
-            world=self.world_name,
-        )
-        req1 = SpawnEntity.Request()
-        req1.entity_factory = payload_1.to_entity_factory_msg()
-        self.spawn_entity_client.call_async(req1)
+        # payload_1 = Entity(
+        #     name="payload_1",
+        #     path_to_sdf="~/.simulation-gazebo/models/payload/model.sdf",
+        #     position=(0.8, 0.8, 0.5),
+        #     rpy=(0.0, 0.0, 0.0),
+        #     world=self.world_name,
+        # )
+        # req1 = SpawnEntity.Request()
+        # req1.entity_factory = payload_1.to_entity_factory_msg()
+        # self.spawn_entity_client.call_async(req1)
 
         return super().generate_world()
 
