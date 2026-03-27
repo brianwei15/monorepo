@@ -17,6 +17,12 @@ STEPS:
 ```
 uxrce_dds_client start -t serial -d /dev/ttyS3 -b 921600 -n <namespace>
 ```
+write to /etc/extras.txt on the pixhawk sd card so that it runs this on startup everything
+
+
+`uxrce_dds_client stop`
+``uxrce_dds_client start -t serial -d /dev/ttyS3 -b 921600 -n <namespace>``
+
 the `<namespace>` is prepended to the bridged topics. For drone 1, namespace should be `px4_1`
 
 2.
