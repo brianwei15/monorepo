@@ -13,6 +13,7 @@ class Competition(IntEnum):
     IARC = 1
     CUSTOM = 2
     SAE = 3
+    SWARM = 4
 
 
 # Competition name mapping
@@ -21,6 +22,7 @@ COMPETITION_NAMES = {
     Competition.IARC: "iarc",
     Competition.CUSTOM: "custom",
     Competition.SAE: "sae",
+    Competition.SWARM: "swarm",
 }
 
 # Platform name mapping

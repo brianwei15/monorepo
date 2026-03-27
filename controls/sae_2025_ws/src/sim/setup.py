@@ -54,6 +54,7 @@ setup(
             "custom_world_node = sim.world_gen.CustomWorldNode:main",
             "hoop_score = sim.scoring.HoopScore:main",
             "sae_world_node = sim.world_gen.SAEWorldNode:main",
+            "swarm_world_node = sim.world_gen.SwarmWorldNode:main",
         ],
     },
 )
