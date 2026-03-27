@@ -42,6 +42,8 @@ def launch_setup(context, *args, **kwargs):
     save_vision_bool = save_vision_milliseconds > 0
     servo_only_bool = params.get("servo_only", False)
 
+    ids = [str(i) for i in params.get("ids", [])] or [""]
+
     sim_bool = params.get("sim", False)
     auto_launch = params.get("auto_launch", True)
 
@@ -176,6 +178,7 @@ def launch_setup(context, *args, **kwargs):
                 "servo_only": servo_only_bool,
                 "camera_offsets": camera_offsets,
                 "vehicle_class": vehicle_class.name,
+                "ids": ids,
                 **({"vision_nodes": vision_nodes} if vision_nodes else {}),
             }
         ],
@@ -314,11 +317,33 @@ def launch_setup(context, *args, **kwargs):
             cmd=[
                 "bash",
                 "-c",
-                f"PX4_GZ_MODEL_POSE='{vehicle_pose_str}' PX4_GZ_WORLD={competition} PX4_GZ_STANDALONE=1 PX4_SYS_AUTOSTART={autostart} PX4_SIM_MODEL={model} ./build/px4_sitl_default/bin/px4",
+                f"PX4_GZ_MODEL_POSE='{vehicle_pose_str}' PX4_GZ_WORLD={competition} PX4_GZ_STANDALONE=1 PX4_SYS_AUTOSTART={autostart} PX4_SIM_MODEL={model} ./build/px4_sitl_default/bin/px4 -i 1",
             ],
             cwd=px4_path,
             output="screen",
             name="px4_sitl",
+        )
+
+        px4_sitl2 = ExecuteProcess(
+            cmd=[
+                "bash",
+                "-c",
+                f"PX4_GZ_MODEL_POSE='0,2.5,0,0,0,0' PX4_GZ_WORLD={competition} PX4_GZ_STANDALONE=1 PX4_SYS_AUTOSTART=4014 PX4_SIM_MODEL=gz_x500_mono_cam_down ./build/px4_sitl_default/bin/px4 -i 2",
+            ],
+            cwd=px4_path,
+            output="screen",
+            name="px4_sitl2",
+        )
+
+        px4_sitl3 = ExecuteProcess(
+            cmd=[
+                "bash",
+                "-c",
+                f"PX4_GZ_MODEL_POSE='0,-2.5,0,0,0,0' PX4_GZ_WORLD={competition} PX4_GZ_STANDALONE=1 PX4_SYS_AUTOSTART=4014 PX4_SIM_MODEL=gz_x500_mono_cam_down ./build/px4_sitl_default/bin/px4 -i 3",
+            ],
+            cwd=px4_path,
+            output="screen",
+            name="px4_sitl2",
         )
         actions = [
             sim,
@@ -328,6 +353,8 @@ def launch_setup(context, *args, **kwargs):
                         [
                             LogInfo(msg="Gazebo process started."),
                             px4_sitl,
+                            px4_sitl2,
+                            px4_sitl3,
                             *vision_node_actions,
                             middleware,
                             *payload_launch_actions,
@@ -360,7 +387,7 @@ def launch_setup(context, *args, **kwargs):
         actions = [
             *vision_node_actions,
             LogInfo(msg="Vision nodes started."),
-            middleware,
+            # middleware, #commented out since we are running mission entirely on laptop, middleware alr running on pis
             mission,
         ]
         if auto_launch:

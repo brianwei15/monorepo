@@ -32,6 +32,7 @@ class ModeManager(Node):
         self.declare_parameter("debug", False)
         self.declare_parameter("servo_only", False)
         self.declare_parameter("vehicle_class", Vehicle.MULTICOPTER.name)
+        self.declare_parameter("ids", [""])
 
         mode_map = self.get_parameter("mode_map").value
         if not mode_map:
@@ -51,6 +52,8 @@ class ModeManager(Node):
         vehicle_class = self._parse_vehicle_class(
             self.get_parameter("vehicle_class").value
         )
+        ids_param = self.get_parameter("ids").value
+        ids = [i for i in ids_param if i != ""] or None
 
         self.timer = None
         self.start_mission_trigger = self.create_service(
@@ -65,7 +68,12 @@ class ModeManager(Node):
         self.last_update_time = time()
         self.start_time = self.last_update_time
         # Instantiate appropriate UAV subclass based on vehicle type
-        if vehicle_class == Vehicle.VTOL:
+        if ids is not None:
+            for i, uav_id in enumerate(ids, start=1):
+                uav = Multicopter(self, DEBUG=debug, camera_offsets=camera_offsets, id=uav_id)
+                setattr(self, f"uav{i}", uav)
+            self.uav = getattr(self, "uav1")
+        elif vehicle_class == Vehicle.VTOL:
             self.uav = VTOL(self, DEBUG=debug, camera_offsets=camera_offsets)
         else:
             self.uav = Multicopter(self, DEBUG=debug, camera_offsets=camera_offsets)
