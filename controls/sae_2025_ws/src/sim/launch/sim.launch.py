@@ -164,9 +164,9 @@ def launch_setup(context, *args, **kwargs):
     model = LaunchConfiguration("model").perform(context)
 
     GZ_CAMERA_TOPIC = (
-        f"/world/{competition}/model/{model[3:]}_0/link/camera_link/sensor/camera/image"
+        f"/world/{competition}/model/{model[3:]}_0/link/camera_link/sensor/imager/image"
     )
-    GZ_CAMERA_INFO_TOPIC = f"/world/{competition}/model/{model[3:]}_0/link/camera_link/sensor/camera/camera_info"
+    GZ_CAMERA_INFO_TOPIC = f"/world/{competition}/model/{model[3:]}_0/link/camera_link/sensor/imager/camera_info"
 
     gz_ros_bridge_camera = Node(
         package="ros_gz_bridge",
@@ -193,6 +193,22 @@ def launch_setup(context, *args, **kwargs):
     sim_stage_params, sim_config_path = load_sim_parameters(
         competition, logger, competition, mission_stage
     )
+
+    thermal_bridges = []
+    if "thermal" in model:
+        # The thermal sensor uses an explicit <topic> in the SDF, so GZ publishes
+        # on a short path rather than the full world-scoped path.
+        thermal_bridges.append(
+            Node(
+                package="ros_gz_bridge",
+                executable="parameter_bridge",
+                arguments=["/thermal_camera/image@sensor_msgs/msg/Image[gz.msgs.Image"],
+                remappings=[("/thermal_camera/image", "/thermal_camera")],
+                output="screen",
+                name="gz_ros_bridge_thermal",
+                cwd=sae_ws_path,
+            )
+        )
 
     if "world" not in sim_stage_params:
         raise ValueError(
@@ -273,6 +289,7 @@ def launch_setup(context, *args, **kwargs):
                     gz_ros_bridge_create,
                     gz_ros_bridge_camera,
                     gz_ros_bridge_camera_info,
+                    *thermal_bridges,
                 ],
             )
         ),

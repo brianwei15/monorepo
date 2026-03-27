@@ -34,6 +34,7 @@ vehicle_camera_map = {
     "gz_rc_cessna": False,
     "gz_quadtailsitter": False,
     # Custom/Team Models (Add custom model names below)
+    "gz_x500_thermal_cam_down": True,
 }
 
 
