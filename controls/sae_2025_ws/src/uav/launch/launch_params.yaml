@@ -17,3 +17,4 @@ camera_offsets: [0.0, 0.0, 0.0] # Should denote the position of the camera relat
                           # In NED frame: x is forward, y is right, and z is down.
 
 sim: true
+ids: [1, 2, 3] # List of PX4 instance IDs for multi-drone sim. Remove or set to [] for single-drone mode.
