@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<sdf version='1.9'>
+  <model name='x500_thermal_cam_down'>
+    <self_collide>false</self_collide>
+    <include merge='true'>
+      <uri>x500</uri>
+    </include>
+
+    <!-- Regular downward mono camera -->
+    <include merge='true'>
+      <uri>model://mono_cam</uri>
+      <pose>0 0 .10 0 1.5707 0</pose>
+      <name>mono_cam</name>
+    </include>
+    <joint name="CameraJoint" type="fixed">
+      <parent>base_link</parent>
+      <child>camera_link</child>
+      <pose relative_to="base_link">0 0 0 0 1.5707 0</pose>
+    </joint>
+
+    <!-- Downward-facing thermal camera -->
+    <link name="thermal_camera_link">
+      <pose relative_to="base_link">0 0 0 0 1.5707 0</pose>
+      <inertial>
+        <mass>0.050</mass>
+        <inertia>
+          <ixx>0.00004</ixx>
+          <ixy>0</ixy>
+          <ixz>0</ixz>
+          <iyy>0.00004</iyy>
+          <iyz>0</iyz>
+          <izz>0.00004</izz>
+        </inertia>
+      </inertial>
+      <sensor name="thermal_camera" type="thermal_camera">
+        <gz_frame_id>thermal_camera_link</gz_frame_id>
+        <camera>
+          <horizontal_fov>1.047</horizontal_fov>
+          <image>
+            <width>320</width>
+            <height>240</height>
+            <format>L16</format>
+          </image>
+          <clip>
+            <near>0.1</near>
+            <far>100</far>
+          </clip>
+        </camera>
+        <always_on>1</always_on>
+        <update_rate>10</update_rate>
+        <visualize>true</visualize>
+        <topic>thermal_camera/image</topic>
+      </sensor>
+    </link>
+    <joint name="ThermalCameraJoint" type="fixed">
+      <parent>base_link</parent>
+      <child>thermal_camera_link</child>
+    </joint>
+  </model>
+</sdf>

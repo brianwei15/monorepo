@@ -30,27 +30,16 @@ class SwarmWorldNode(WorldNode):
         )
 
     def generate_world(self):
-        # payload_0 = Entity(
-        #     name="payload_0",
-        #     path_to_sdf="~/.simulation-gazebo/models/payload/model.sdf",
-        #     position=(0, 0, 0.5),
-        #     rpy=(0.0, 0.0, 0.0),
-        #     world=self.world_name,
-        # # )
-        # req = SpawnEntity.Request()
-        # req.entity_factory = payload_0.to_entity_factory_msg()
-        # self.spawn_entity_client.call_async(req)
-
-        # payload_1 = Entity(
-        #     name="payload_1",
-        #     path_to_sdf="~/.simulation-gazebo/models/payload/model.sdf",
-        #     position=(0.8, 0.8, 0.5),
-        #     rpy=(0.0, 0.0, 0.0),
-        #     world=self.world_name,
-        # )
-        # req1 = SpawnEntity.Request()
-        # req1.entity_factory = payload_1.to_entity_factory_msg()
-        # self.spawn_entity_client.call_async(req1)
+        heat_source = Entity(
+            name="heat_source_0",
+            path_to_sdf="~/.simulation-gazebo/models/heat_source/model.sdf",
+            position=(0.2, 0.0, 0.1),
+            rpy=(0.0, 0.0, 0.0),
+            world=self.world_name,
+        )
+        req = SpawnEntity.Request()
+        req.entity_factory = heat_source.to_entity_factory_msg()
+        self.spawn_entity_client.call_async(req)
 
         return super().generate_world()
 
