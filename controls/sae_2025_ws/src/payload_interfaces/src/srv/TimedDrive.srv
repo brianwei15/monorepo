@@ -1,6 +1,0 @@
-float64 linear
-float64 angular
-float64 duration_sec
----
-bool success
-string message
