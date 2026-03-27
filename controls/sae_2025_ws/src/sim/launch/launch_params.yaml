@@ -1,4 +1,4 @@
-competition: 3 # 0 for in_house, 1 for iarc, 2 for custom, 3 for sae
+competition: 4 # 0 for in_house, 1 for iarc, 2 for custom, 3 for sae, 4 for swarm
 mission_stage: "" # optional mission stage for world generation config
                   # if empty: loads src/sim/sim/simulations/sae/base.yaml
                   # if set:   loads src/sim/sim/simulations/sae/<mission_stage>.yaml
