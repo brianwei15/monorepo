@@ -55,14 +55,9 @@ def launch_setup(context, *args, **kwargs):
 
     thermal_cam = ExecuteProcess(
         cmd=[
-            "ros2", "run", "v4l2_camera", "v4l2_camera_node",
+            "ros2", "run", "uav", "thermal_camera_node",
             "--ros-args",
-            "-p", "video_device:=/dev/video0",
-            "-p", "image_size:=[160,120]",
-            "-p", "framerate:=9",
-            "--remap", f"/image_raw:={ns}/thermal/image_raw",
-            "--remap", f"/image_raw/compressed:={ns}/thermal/image_raw/compressed",
-            "--remap", f"/camera_info:={ns}/thermal/camera_info",
+            "-p", f"topic:={ns}/thermal_camera",
         ],
         output="screen",
         name="thermal_cam",
