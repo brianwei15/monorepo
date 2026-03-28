@@ -6,11 +6,21 @@ start:
 search:
   class: uav.autonomous_modes.SwarmSearchMode
   params:
-    search_heading_deg: 45.0     # NED degrees: 0=North, 90=East, 180=South, 270=West
+    initial_search_heading_deg: 45.0     # NED degrees: 0=North, 90=East, 180=South, 270=West
     search_altitudes: [-5.0, -8.0, -11.0]  # per-drone AGL (NED z, negative=up)
     strip_width: 6.0            # metres between parallel passes within each drone's path
-    forward_dist: 15.0          # metres forward per pass
+    forward_dist: 20.0          # metres forward per pass
     n_strips: 3                 # number of forward/back passes per drone
+    #each direction is (degree to turn, forward distance).
+    #Positive degree is turn clockwise, negative is turn counter clockwise. Each new turn COMPOUNDS
+    # path_segments: [
+    #   [45.0, 15.0], #starts at a 45.0 NED heading
+    #   [120.0, 5.0],
+    #   [120.0, 15.0],
+    #   [120.0, 5.0],
+    #   [120.0, 15.0],
+    #   #then it returns to local origin
+    # ]
     drone_spacing: 2.0          # metres between drone lane centres (independent of strip_width)
     margin: 0.5                 # waypoint arrival tolerance (metres)
   transitions:
