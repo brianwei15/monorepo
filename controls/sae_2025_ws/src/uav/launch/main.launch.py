@@ -268,6 +268,14 @@ def launch_setup(context, *args, **kwargs):
             "vehicle_pose", [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
         )  # [x, y, z, roll, pitch, yaw]
         vehicle_pose_str = ",".join(str(pose) for pose in vehicle_pose)
+        vehicle_pose2 = sim_stage_params["world"]["params"].get(
+            "vehicle_pose_2", [0.0, 2.5, 0.0, 0.0, 0.0, 0.0]
+        )
+        vehicle_pose2_str = ",".join(str(pose) for pose in vehicle_pose2)
+        vehicle_pose3 = sim_stage_params["world"]["params"].get(
+            "vehicle_pose_3", [0.0, -2.5, 0.0, 0.0, 0.0, 0.0]
+        )
+        vehicle_pose3_str = ",".join(str(pose) for pose in vehicle_pose3)
         logger.info(f"Spawning vehicle at pose: {vehicle_pose_str}")
 
         world_params_dict = sim_stage_params["world"]["params"]
@@ -328,7 +336,7 @@ def launch_setup(context, *args, **kwargs):
             cmd=[
                 "bash",
                 "-c",
-                f"PX4_GZ_MODEL_POSE='0,2.5,0,0,0,0' PX4_GZ_WORLD={competition} PX4_GZ_STANDALONE=1 PX4_SYS_AUTOSTART=4014 PX4_SIM_MODEL=gz_x500_mono_cam_down ./build/px4_sitl_default/bin/px4 -i 2",
+                f"PX4_GZ_MODEL_POSE='{vehicle_pose2_str}' PX4_GZ_WORLD={competition} PX4_GZ_STANDALONE=1 PX4_SYS_AUTOSTART=4014 PX4_SIM_MODEL=gz_x500_mono_cam_down ./build/px4_sitl_default/bin/px4 -i 2",
             ],
             cwd=px4_path,
             output="screen",
@@ -339,7 +347,7 @@ def launch_setup(context, *args, **kwargs):
             cmd=[
                 "bash",
                 "-c",
-                f"PX4_GZ_MODEL_POSE='0,-2.5,0,0,0,0' PX4_GZ_WORLD={competition} PX4_GZ_STANDALONE=1 PX4_SYS_AUTOSTART=4014 PX4_SIM_MODEL=gz_x500_mono_cam_down ./build/px4_sitl_default/bin/px4 -i 3",
+                f"PX4_GZ_MODEL_POSE='{vehicle_pose3_str}' PX4_GZ_WORLD={competition} PX4_GZ_STANDALONE=1 PX4_SYS_AUTOSTART=4014 PX4_SIM_MODEL=gz_x500_mono_cam_down ./build/px4_sitl_default/bin/px4 -i 3",
             ],
             cwd=px4_path,
             output="screen",
