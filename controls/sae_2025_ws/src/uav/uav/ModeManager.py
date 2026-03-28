@@ -73,10 +73,13 @@ class ModeManager(Node):
                 uav = Multicopter(self, DEBUG=debug, camera_offsets=camera_offsets, id=uav_id)
                 setattr(self, f"uav{i}", uav)
             self.uav = getattr(self, "uav1")
+            self._all_uavs = [getattr(self, f"uav{i+1}") for i in range(len(ids))]
         elif vehicle_class == Vehicle.VTOL:
             self.uav = VTOL(self, DEBUG=debug, camera_offsets=camera_offsets)
+            self._all_uavs = [self.uav]
         else:
             self.uav = Multicopter(self, DEBUG=debug, camera_offsets=camera_offsets)
+            self._all_uavs = [self.uav]
         self.get_logger().info("Mission Node has started!")
         self.setup_vision(vision_nodes)
         self.setup_modes(mode_map)
@@ -285,44 +288,37 @@ class ModeManager(Node):
                 elif state != "continue":
                     self.switch_mode(self.transition(state))
         else:
-            if not self.uav.origin_set:
-                self.uav.set_origin()
-            if self.uav.arm_state != VehicleStatus.ARMING_STATE_ARMED:
-                self.get_logger().info(
-                    f"UAV is not armed. Current arm state: {self.uav.arm_state}"
-                )
-                # Successfully landed - terminate mission
-                if (
-                    self.active_mode is not None
-                    and self.get_active_mode() == LandingMode
-                    and self.uav.nav_state != VehicleStatus.NAVIGATION_STATE_AUTO_LAND
-                ):
-                    self.get_logger().info("Successfully Landed UAV")
-                    self.get_logger().info("Finishing Mission")
-                    self.destroy_node()
-                    return
-
-                # If we attempted takeoff but became disarmed (not during landing), something went wrong
-                # Terminate instead of cycling
-                if self.uav.attempted_takeoff and self.active_mode is not None:
-                    self.get_logger().error(
-                        "UAV disarmed unexpectedly after takeoff attempt. Terminating to prevent infinite cycle."
+            all_ready = True
+            for uav in self._all_uavs:
+                if not uav.origin_set:
+                    uav.set_origin()
+                if uav.arm_state != VehicleStatus.ARMING_STATE_ARMED:
+                    self.get_logger().info(
+                        f"UAV {uav.id if hasattr(uav, 'id') else ''} is not armed. Current arm state: {uav.arm_state}"
                     )
-                    self.get_logger().error(
-                        "This usually indicates preflight check failures or PX4 safety triggers."
-                    )
-                    self.destroy_node()
-                    return
+                    if uav.local_position is None or uav.global_position is None:
+                        all_ready = False
+                        continue
+                    if uav.attempted_takeoff and self.active_mode is not None:
+                        self.get_logger().error(
+                            "UAV disarmed unexpectedly after takeoff attempt. Terminating to prevent infinite cycle."
+                        )
+                        self.get_logger().error(
+                            "This usually indicates preflight check failures or PX4 safety triggers."
+                        )
+                        self.destroy_node()
+                        return
+                    uav.arm()
+                    self.start_time = current_time
+                    all_ready = False
+                    continue
+                if uav.local_position is None or uav.global_position is None:
+                    all_ready = False
+                    continue
+                uav.publish_offboard_control_heartbeat_signal()
 
-                self.uav.arm()
-                self.get_logger().info("Arming UAV")
-                self.start_time = current_time
-                return  # Wait for arm to complete
-
-            if self.uav.local_position is None or self.uav.global_position is None:
-                return  # Wait for position data
-
-            self.uav.publish_offboard_control_heartbeat_signal()
+            if not all_ready:
+                return  # Wait for all drones to be armed and positioned
 
             # Start mission - TakeoffMode handles takeoff, heartbeat, and offboard engagement
             if self.active_mode is None:

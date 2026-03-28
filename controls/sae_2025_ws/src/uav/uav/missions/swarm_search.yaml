@@ -1,0 +1,12 @@
+start:
+  class: uav.autonomous_modes.SwarmTakeoffMode
+  transitions:
+    complete: search
+
+search:
+  class: uav.autonomous_modes.SwarmSearchMode
+  transitions:
+    complete: land
+
+land:
+  class: uav.autonomous_modes.SwarmLandingMode
