@@ -16,6 +16,19 @@ class SwarmTakeoffMode(Mode):
         self._commanded = [False] * len(self.uavs)
         self._elapsed = [0.0] * len(self.uavs)
 
+    def on_enter(self) -> None:
+        # Capture the middle drone's initial yaw as the swarm reference heading.
+        # All search patterns will be oriented relative to this direction so the
+        # mission follows the physical placement direction regardless of where
+        # PX4 ends up pointing the drones during arming/startup.
+        middle = self.uavs[0]  # uav1 is the spatially central drone (spawn at origin)
+        if middle.yaw is not None:
+            self.node.swarm_reference_yaw = middle.yaw
+            self.log(f"Reference yaw captured from middle drone: {middle.yaw:.3f} rad")
+        else:
+            self.node.swarm_reference_yaw = 0.0
+            self.log("Middle drone yaw not yet available; defaulting reference yaw to 0.0 rad")
+
     def on_update(self, time_delta: float) -> None:
         for i, uav in enumerate(self.uavs):
             self._elapsed[i] += time_delta
