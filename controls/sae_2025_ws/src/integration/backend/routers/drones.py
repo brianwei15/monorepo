@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Form, Query, WebSocket
+
+log = logging.getLogger(__name__)
 
 from ..config import DRONE_FLEET
 from ..context import AppContext
@@ -26,14 +29,26 @@ def build_router(ctx: AppContext) -> APIRouter:
 
     @router.get("/api/drones")
     async def list_drones():
+        log.info("/api/drones called")
         async def _ping(drone_id: str, name: str, host: str):
             drone = ctx.fleet.get(drone_id)
             if not drone:
+                log.warning("No fleet entry for %s", drone_id)
                 return {"id": drone_id, "name": name, "host": host, "connected": False}
+            cmd = drone.ssh.build_ssh_cmd("echo ok")
+            log.info("Pinging %s (%s): %s", drone_id, host, " ".join(cmd))
             try:
-                result = await drone.ssh.run("echo ok", timeout=3)
+                result = await asyncio.wait_for(drone.ssh.run("echo ok", timeout=5), timeout=6)
                 connected = result.returncode == 0
-            except Exception:
+                if connected:
+                    log.info("SSH ping OK for %s (%s)", drone_id, host)
+                else:
+                    log.warning("SSH ping failed for %s (%s) rc=%s stderr=%r", drone_id, host, result.returncode, result.stderr.strip())
+            except asyncio.TimeoutError:
+                log.warning("SSH ping timed out (thread pool likely saturated) for %s (%s)", drone_id, host)
+                connected = False
+            except Exception as exc:
+                log.warning("SSH ping exception for %s (%s): %s", drone_id, host, exc)
                 connected = False
             return {"id": drone_id, "name": name, "host": host, "connected": connected}
 

@@ -4,9 +4,13 @@ import asyncio
 import shlex
 import shutil
 import subprocess
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 
 from .config import RuntimeConfig
+
+# Dedicated thread pool for SSH so video stream threads can't starve it
+_SSH_EXECUTOR = ThreadPoolExecutor(max_workers=8, thread_name_prefix="ssh")
 
 
 @dataclass(slots=True)
@@ -65,12 +69,14 @@ class SSHExecutor:
         return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
 
     async def run(self, command: str, timeout: int = 15) -> subprocess.CompletedProcess:
-        return await asyncio.to_thread(self.run_sync, command, timeout)
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(_SSH_EXECUTOR, self.run_sync, command, timeout)
 
     async def scp(
         self, local_path: str, remote_path: str, timeout: int = 300
     ) -> subprocess.CompletedProcess:
-        return await asyncio.to_thread(self.scp_sync, local_path, remote_path, timeout)
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(_SSH_EXECUTOR, self.scp_sync, local_path, remote_path, timeout)
 
     def friendly_error(self, stderr: str) -> str:
         raw = (stderr or "").strip()

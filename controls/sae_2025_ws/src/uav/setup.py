@@ -35,6 +35,7 @@ setup(
             "global_position_offboard_control = uav.global_position_offboard_control:main",
             "mission = uav.ModeManager:main",
             "payload_tracking_node = uav.vision_nodes.PayloadTrackingNode:main",
+            "thermal_camera_node = uav.ThermalCameraNode:main",
             "thermal_vision_node = uav.vision_nodes.ThermalVisionNode:main",
             "camera = uav.CameraNode:main",
         ],

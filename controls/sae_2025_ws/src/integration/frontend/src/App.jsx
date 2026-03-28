@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import '@xterm/xterm/css/xterm.css'
 import './App.css'
 import { useMissionControl } from './hooks/useMissionControl'
@@ -96,9 +96,9 @@ const LAUNCH_PARAM_TOGGLE_FIELDS = [
 ].map(key => LAUNCH_PARAM_FIELD_MAP[key]).filter(Boolean)
 
 const DRONE_FLEET = [
-  { id: 'px4_1', name: 'penn1' },
-  { id: 'px4_2', name: 'penn2' },
-  { id: 'px4_3', name: 'penn3' },
+  { id: 'px4_1', name: 'penn1', host: '10.42.0.231' },
+  { id: 'px4_2', name: 'penn2', host: '10.42.0.237' },
+  { id: 'px4_3', name: 'penn3', host: '10.42.0.248' },
 ]
 
 const LOCAL_MISSION_ACTIONS = [
@@ -227,10 +227,6 @@ function StatusBar({ connected, wifiStatus, buildInfo, fleetStatus }) {
 
   return (
     <div className="status-bar">
-      <div className="status-item">
-        <span className={`status-dot ${connected ? 'dot-ok' : 'dot-err'}`} />
-        <span>{connected ? 'Pi connected' : 'Pi unreachable'}</span>
-      </div>
       <div className="status-item">
         <span className={`status-dot ${connected && wifiStatus?.current_wifi ? 'dot-ok' : 'dot-warn'}`} />
         <span>{wifiText}</span>
@@ -612,29 +608,63 @@ function SettingsPanel({ onRefresh }) {
 }
 
 const DEFAULT_STREAMS = [
-  { topic: '/px4_1/thermal/image_raw/compressed', label: 'px4_1 thermal' },
+  { topic: '/px4_1/thermal_camera/heatmap/compressed', label: 'px4_1 thermal heatmap' },
   { topic: '/px4_1/rgb/image_raw/compressed', label: 'px4_1 rgb' },
   { topic: '/px4_2/camera/compressed', label: 'px4_2 camera' },
   { topic: '/px4_3/camera/compressed', label: 'px4_3 camera' },
+  { topic: '/px4_1/thermal_camera/mask/compressed', label: 'px4_1 thermal mask' },
+  { topic: '/px4_1/thermal_camera/debug/compressed', label: 'px4_1 thermal debug' },
 ]
 
 function StreamBox({ topic, label, onRemove }) {
+  const canvasRef = useRef(null)
+  const wsRef = useRef(null)
   const [errored, setErrored] = useState(false)
-  const [key, setKey] = useState(0)
 
-  const src = `/api/stream/video?topic=${encodeURIComponent(topic)}`
-
-  const refresh = () => {
+  const connect = useCallback(() => {
+    if (wsRef.current) {
+      wsRef.current.onclose = null
+      wsRef.current.close()
+    }
     setErrored(false)
-    setKey(k => k + 1)
-  }
+    const proto = window.location.protocol === 'https:' ? 'wss' : 'ws'
+    const ws = new WebSocket(`${proto}://${window.location.host}/ws/stream/video?topic=${encodeURIComponent(topic)}`)
+    ws.binaryType = 'blob'
+    ws.onmessage = (e) => {
+      const url = URL.createObjectURL(e.data)
+      const img = new Image()
+      img.onload = () => {
+        const canvas = canvasRef.current
+        if (canvas) {
+          canvas.width = img.width
+          canvas.height = img.height
+          canvas.getContext('2d').drawImage(img, 0, 0)
+        }
+        URL.revokeObjectURL(url)
+      }
+      img.src = url
+    }
+    ws.onerror = () => setErrored(true)
+    ws.onclose = () => setErrored(true)
+    wsRef.current = ws
+  }, [topic])
+
+  useEffect(() => {
+    connect()
+    return () => {
+      if (wsRef.current) {
+        wsRef.current.onclose = null
+        wsRef.current.close()
+      }
+    }
+  }, [connect])
 
   return (
     <div className="stream-box">
       <div className="stream-header">
         <span className="stream-label">{label || topic}</span>
         <div className="stream-header-actions">
-          <button className="stream-btn" onClick={refresh} title="Reconnect">&#8635;</button>
+          <button className="stream-btn" onClick={connect} title="Reconnect">&#8635;</button>
           {onRemove && (
             <button className="stream-btn stream-btn-remove" onClick={onRemove} title="Remove">&#10005;</button>
           )}
@@ -644,16 +674,10 @@ function StreamBox({ topic, label, onRemove }) {
         {errored ? (
           <div className="stream-error">
             <span>No stream</span>
-            <button className="stream-btn" onClick={refresh}>Retry</button>
+            <button className="stream-btn" onClick={connect}>Retry</button>
           </div>
         ) : (
-          <img
-            key={key}
-            src={src}
-            className="stream-img"
-            onError={() => setErrored(true)}
-            alt={topic}
-          />
+          <canvas ref={canvasRef} className="stream-img" />
         )}
       </div>
       <div className="stream-topic">{topic}</div>
@@ -1089,32 +1113,46 @@ function PiDronePanel({ droneId, name, host, connected }) {
   )
 }
 
-function PiConnectionsPage({ fleetStatus }) {
+function PiConnectionsPage({ fleetStatus, onRefresh }) {
+  const [checking, setChecking] = useState(false)
+
+  const handleCheck = useCallback(async () => {
+    setChecking(true)
+    try {
+      await onRefresh()
+    } finally {
+      setChecking(false)
+    }
+  }, [onRefresh])
+
   return (
-    <div className="pi-connections-page">
-      {DRONE_FLEET.map(d => (
-        <PiDronePanel
-          key={d.id}
-          droneId={d.id}
-          name={d.name}
-          host={fleetStatus?.[d.id]?.host || ''}
-          connected={fleetStatus?.[d.id]?.connected ?? false}
-        />
-      ))}
+    <div>
+      <div style={{ marginBottom: '0.75rem' }}>
+        <button className="btn btn-secondary" onClick={handleCheck} disabled={checking}>
+          {checking ? 'Checking...' : 'Check Connections'}
+        </button>
+      </div>
+      <div className="pi-connections-page">
+        {DRONE_FLEET.map(d => (
+          <PiDronePanel
+            key={d.id}
+            droneId={d.id}
+            name={d.name}
+            host={fleetStatus?.[d.id]?.host || d.host}
+            connected={fleetStatus?.[d.id]?.connected ?? false}
+          />
+        ))}
+      </div>
     </div>
   )
 }
 
-function DeployPage({ connected, sshCommand, wifiStatus, buildInfo, onRefresh }) {
+function DeployPage({ connected, wifiStatus, buildInfo, onRefresh }) {
   return (
-    <>
-      <ConnectionCard sshCommand={sshCommand} />
-
-      <div className="grid">
-        <WifiCard connected={connected} wifiStatus={wifiStatus} onRefresh={onRefresh} />
-        <BuildCard connected={connected} buildInfo={buildInfo} onRefresh={onRefresh} />
-      </div>
-    </>
+    <div className="grid">
+      <WifiCard connected={connected} wifiStatus={wifiStatus} onRefresh={onRefresh} />
+      <BuildCard connected={connected} buildInfo={buildInfo} onRefresh={onRefresh} />
+    </div>
   )
 }
 
@@ -1150,33 +1188,16 @@ function App() {
   const [page, setPage] = useState('mission')
   const [theme, setTheme] = useState(readStoredTheme)
 
-  const [connected, setConnected] = useState(false)
   const [wifiStatus, setWifiStatus] = useState(null)
   const [buildInfo, setBuildInfo] = useState(null)
-  const [sshCommand, setSshCommand] = useState('')
-  const [pollError, setPollError] = useState(null)
   const [fleetStatus, setFleetStatus] = useState({})
 
+  const connected = Object.values(fleetStatus).some(d => d.connected)
+
   const refreshAll = useCallback(async () => {
-    const conn = await api('/api/connection/status')
-    const sshPromise = api('/api/connection/ssh-command')
-
-    const isConnected = Boolean(conn?.connected)
-    setConnected(isConnected)
-
-    if (!isConnected) {
-      const ssh = await sshPromise
-      if (ssh.success) setSshCommand(ssh.command)
-      setWifiStatus(null)
-      setBuildInfo(null)
-      setPollError(conn?.error ? { success: false, error: conn.error } : null)
-      return
-    }
-
-    const [wifi, build, ssh, fleet] = await Promise.all([
+    const [wifi, build, fleet] = await Promise.all([
       api('/api/wifi/status'),
       api('/api/builds/current'),
-      sshPromise,
       api('/api/drones'),
     ])
 
@@ -1188,10 +1209,6 @@ function App() {
 
     setWifiStatus(wifi.success ? wifi : null)
     setBuildInfo(build.success ? build : null)
-    if (ssh.success) setSshCommand(ssh.command)
-
-    const err = (!wifi.success ? wifi?.error : null) || (!build.success ? build?.error : null) || null
-    setPollError(err ? { success: false, error: err } : null)
   }, [])
 
   useEffect(() => {
@@ -1219,7 +1236,6 @@ function App() {
 
       <h1 className="title">PennAiR Auton Deploy</h1>
       <StatusBar connected={connected} wifiStatus={wifiStatus} buildInfo={buildInfo} fleetStatus={fleetStatus} />
-      <Result data={pollError} />
 
       <div className="top-controls">
         <div className="page-tabs">
@@ -1251,10 +1267,10 @@ function App() {
         <MissionControl onRefresh={refreshAll} />
       )}
       {page === 'deploy' && (
-        <DeployPage connected={connected} sshCommand={sshCommand} wifiStatus={wifiStatus} buildInfo={buildInfo} onRefresh={refreshAll} />
+        <DeployPage connected={connected} wifiStatus={wifiStatus} buildInfo={buildInfo} onRefresh={refreshAll} />
       )}
       {page === 'pi' && (
-        <PiConnectionsPage fleetStatus={fleetStatus} />
+        <PiConnectionsPage fleetStatus={fleetStatus} onRefresh={refreshAll} />
       )}
     </div>
   )
