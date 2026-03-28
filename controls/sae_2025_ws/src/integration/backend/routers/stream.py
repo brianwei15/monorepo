@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from ..services import ros_stream
@@ -34,5 +34,16 @@ def build_router() -> APIRouter:
             _mjpeg(),
             media_type="multipart/x-mixed-replace; boundary=frame",
         )
+
+    @router.websocket("/ws/stream/video")
+    async def video_stream_ws(websocket: WebSocket, topic: str = Query(...)):
+        await websocket.accept()
+        try:
+            async for frame in ros_stream.stream_frames(topic):
+                await websocket.send_bytes(frame)
+        except WebSocketDisconnect:
+            pass
+        except Exception:
+            pass
 
     return router
