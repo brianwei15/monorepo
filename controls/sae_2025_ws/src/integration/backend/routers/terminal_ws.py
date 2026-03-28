@@ -3,7 +3,9 @@ from __future__ import annotations
 from fastapi import APIRouter, Query, WebSocket
 
 from ..context import AppContext
-from ..services import mission as mission_service
+from ..services import local_mission
+
+_DRONE_ID = "main"
 
 
 def build_router(ctx: AppContext) -> APIRouter:
@@ -15,8 +17,9 @@ def build_router(ctx: AppContext) -> APIRouter:
         offset: int = Query(default=0),
         inode: int = Query(default=0),
     ):
-        await mission_service.stream_terminal(
+        await local_mission.stream_terminal(
             ctx,
+            _DRONE_ID,
             websocket,
             offset=offset,
             inode=inode,

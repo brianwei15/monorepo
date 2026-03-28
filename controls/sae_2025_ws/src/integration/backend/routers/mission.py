@@ -14,7 +14,9 @@ from ..models import (
     MissionNameOptionsResponse,
     MissionStateResponse,
 )
-from ..services import mission as mission_service
+from ..services import local_mission
+
+_DRONE_ID = "main"
 
 
 def build_router(ctx: AppContext) -> APIRouter:
@@ -23,7 +25,7 @@ def build_router(ctx: AppContext) -> APIRouter:
     @router.get("/api/mission/state", response_model=MissionStateResponse)
     async def mission_state() -> MissionStateResponse:
         return MissionStateResponse.model_validate(
-            await mission_service.mission_state(ctx)
+            await local_mission.mission_state(ctx, _DRONE_ID)
         )
 
     @router.get(
@@ -31,7 +33,7 @@ def build_router(ctx: AppContext) -> APIRouter:
     )
     async def mission_launch_status() -> MissionLaunchStatusResponse:
         return MissionLaunchStatusResponse.model_validate(
-            await mission_service.launch_status(ctx)
+            await local_mission.refresh_runtime_state(ctx, _DRONE_ID)
         )
 
     @router.get("/api/mission/launch/logs", response_model=MissionLogsResponse)
@@ -41,8 +43,9 @@ def build_router(ctx: AppContext) -> APIRouter:
         inode: Annotated[int | None, Query()] = None,
     ) -> MissionLogsResponse:
         return MissionLogsResponse.model_validate(
-            await mission_service.launch_logs(
+            await local_mission.launch_logs(
                 ctx,
+                _DRONE_ID,
                 lines=lines,
                 offset=offset,
                 inode=inode,
@@ -53,7 +56,7 @@ def build_router(ctx: AppContext) -> APIRouter:
         "/api/mission/prepare", response_model=MessageResponse | MissionLogsResponse
     )
     async def prepare_mission():
-        result = await mission_service.prepare_mission(ctx)
+        result = await local_mission.prepare_mission(ctx, _DRONE_ID)
         if result.get("success"):
             return MessageResponse.model_validate(result)
         return MissionLogsResponse.model_validate(
@@ -64,7 +67,7 @@ def build_router(ctx: AppContext) -> APIRouter:
         "/api/mission/stop", response_model=MessageResponse | MissionLogsResponse
     )
     async def stop_mission():
-        result = await mission_service.stop_mission(ctx)
+        result = await local_mission.stop_mission(ctx, _DRONE_ID)
         if result.get("success"):
             return MessageResponse.model_validate(result)
         return MissionLogsResponse.model_validate(
@@ -75,7 +78,7 @@ def build_router(ctx: AppContext) -> APIRouter:
         "/api/mission/start", response_model=MessageResponse | MissionLogsResponse
     )
     async def start_mission():
-        result = await mission_service.start_mission(ctx)
+        result = await local_mission.start_mission(ctx, _DRONE_ID)
         if result.get("success"):
             return MessageResponse.model_validate(result)
         return MissionLogsResponse.model_validate(
@@ -84,7 +87,7 @@ def build_router(ctx: AppContext) -> APIRouter:
 
     @router.post("/api/failsafe", response_model=MessageResponse | MissionLogsResponse)
     async def trigger_failsafe():
-        result = await mission_service.trigger_failsafe(ctx)
+        result = await local_mission.trigger_failsafe(ctx, _DRONE_ID)
         if result.get("success"):
             return MessageResponse.model_validate(result)
         return MissionLogsResponse.model_validate(
@@ -94,25 +97,25 @@ def build_router(ctx: AppContext) -> APIRouter:
     @router.get("/api/mission/launch-params", response_model=LaunchParamsResponse)
     async def get_launch_params() -> LaunchParamsResponse:
         return LaunchParamsResponse.model_validate(
-            await mission_service.get_launch_params(ctx)
+            await local_mission.get_launch_params(ctx, _DRONE_ID)
         )
 
     @router.get("/api/mission/mission-names", response_model=MissionNameOptionsResponse)
     async def get_mission_names() -> MissionNameOptionsResponse:
         return MissionNameOptionsResponse.model_validate(
-            await mission_service.list_mission_names(ctx)
+            await local_mission.list_mission_names(ctx, _DRONE_ID)
         )
 
     @router.post("/api/mission/launch-params", response_model=LaunchParamsResponse)
     async def set_launch_params(content: Annotated[str, Form(...)]):
         return LaunchParamsResponse.model_validate(
-            await mission_service.set_launch_params(ctx, content=content)
+            await local_mission.set_launch_params(ctx, _DRONE_ID, content=content)
         )
 
     @router.get("/api/mission/mission-file", response_model=MissionFileResponse)
     async def get_mission_file(name: Annotated[str, Query(...)]) -> MissionFileResponse:
         return MissionFileResponse.model_validate(
-            await mission_service.get_mission_file(ctx, name=name)
+            await local_mission.get_mission_file(ctx, _DRONE_ID, name=name)
         )
 
     @router.post("/api/mission/mission-file", response_model=MissionFileResponse)
@@ -120,7 +123,9 @@ def build_router(ctx: AppContext) -> APIRouter:
         name: Annotated[str, Form(...)], content: Annotated[str, Form(...)]
     ) -> MissionFileResponse:
         return MissionFileResponse.model_validate(
-            await mission_service.set_mission_file(ctx, name=name, content=content)
+            await local_mission.set_mission_file(
+                ctx, _DRONE_ID, name=name, content=content
+            )
         )
 
     return router

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import '@xterm/xterm/css/xterm.css'
 import './App.css'
 import { useMissionControl } from './hooks/useMissionControl'
+import { usePiSetup } from './hooks/usePiSetup'
 import { api } from './services/api'
 
 const LAUNCH_PARAM_FIELDS = [
@@ -94,35 +95,17 @@ const LAUNCH_PARAM_TOGGLE_FIELDS = [
   'sim',
 ].map(key => LAUNCH_PARAM_FIELD_MAP[key]).filter(Boolean)
 
-const MISSION_ACTIONS = [
-  {
-    key: 'prepare',
-    url: '/api/mission/prepare',
-    className: 'btn btn-mission-prepare',
-    label: 'PREPARE MISSION',
-    loadingLabel: 'PREPARING...',
-  },
-  {
-    key: 'start',
-    url: '/api/mission/start',
-    className: 'btn btn-mission-start',
-    label: 'START MISSION',
-    loadingLabel: 'STARTING...',
-  },
-  {
-    key: 'stop',
-    url: '/api/mission/stop',
-    className: 'btn btn-mission-stop',
-    label: 'STOP MISSION',
-    loadingLabel: 'STOPPING...',
-  },
-  {
-    key: 'failsafe',
-    url: '/api/failsafe',
-    className: 'btn btn-failsafe',
-    label: 'FAILSAFE',
-    loadingLabel: 'TRIGGERING...',
-  },
+const DRONE_FLEET = [
+  { id: 'px4_1', name: 'penn1' },
+  { id: 'px4_2', name: 'penn2' },
+  { id: 'px4_3', name: 'penn3' },
+]
+
+const LOCAL_MISSION_ACTIONS = [
+  { key: 'prepare', url: '/api/mission/prepare', className: 'btn btn-mission-prepare', label: 'PREPARE MISSION', loadingLabel: 'PREPARING...' },
+  { key: 'start',   url: '/api/mission/start',   className: 'btn btn-mission-start',   label: 'START MISSION',   loadingLabel: 'STARTING...'   },
+  { key: 'stop',    url: '/api/mission/stop',     className: 'btn btn-mission-stop',    label: 'STOP MISSION',    loadingLabel: 'STOPPING...'   },
+  { key: 'failsafe',url: '/api/failsafe',         className: 'btn btn-failsafe',        label: 'FAILSAFE',        loadingLabel: 'TRIGGERING...' },
 ]
 
 function escapeRegex(value) {
@@ -217,7 +200,7 @@ function setYamlFieldValue(content, key, type, value) {
 
 function launchStateLabel(status) {
   const launchState = status?.launch_state || status?.state
-  if (launchState === 'offline') return 'Pi Offline'
+  if (launchState === 'offline') return 'Offline'
   if (launchState === 'running') return 'Launch Running'
   if (launchState === 'stopped') return 'Launch Stopped'
   if (launchState === 'not_prepared') return 'Not Prepared'
@@ -233,7 +216,7 @@ function launchStateClass(status) {
   return 'pill-not-prepared'
 }
 
-function StatusBar({ connected, wifiStatus, buildInfo }) {
+function StatusBar({ connected, wifiStatus, buildInfo, fleetStatus }) {
   const wifiText = connected
     ? (wifiStatus?.is_hotspot ? 'Hotspot' : wifiStatus?.current_wifi || 'No client WiFi')
     : 'Unavailable (Pi offline)'
@@ -256,6 +239,15 @@ function StatusBar({ connected, wifiStatus, buildInfo }) {
         <span className={`status-dot ${connected && buildInfo?.installed ? 'dot-ok' : 'dot-warn'}`} />
         <span>{buildText}</span>
       </div>
+      {DRONE_FLEET.map(d => {
+        const ds = fleetStatus?.[d.id]
+        return (
+          <div key={d.id} className="status-item">
+            <span className={`status-dot ${ds?.connected ? 'dot-ok' : 'dot-err'}`} />
+            <span>{d.name} {ds?.connected ? 'online' : 'offline'}</span>
+          </div>
+        )
+      })}
     </div>
   )
 }
@@ -581,6 +573,8 @@ function SettingsPanel({ onRefresh }) {
     { key: 'remote_dir', label: 'Remote directory', placeholder: '/home/penn/monorepo/controls/sae_2025_ws' },
     { key: 'github_repo', label: 'GitHub repo', placeholder: 'org/repo' },
     { key: 'hotspot_name', label: 'Hotspot connection name', placeholder: 'penn-desktop' },
+    { key: 'px4_path', label: 'PX4 path', placeholder: '/home/yuzhiliu8/code/pennair/PX4-Autopilot' },
+    { key: 'local_ws_dir', label: 'Local workspace dir', placeholder: 'Auto-detect (leave blank)' },
   ]
 
   return (
@@ -617,7 +611,122 @@ function SettingsPanel({ onRefresh }) {
   )
 }
 
-function MissionControl({ connected, buildInfo, onRefresh }) {
+const DEFAULT_STREAMS = [
+  { topic: '/px4_1/thermal/image_raw/compressed', label: 'px4_1 thermal' },
+  { topic: '/px4_1/rgb/image_raw/compressed', label: 'px4_1 rgb' },
+  { topic: '/px4_2/camera/compressed', label: 'px4_2 camera' },
+  { topic: '/px4_3/camera/compressed', label: 'px4_3 camera' },
+]
+
+function StreamBox({ topic, label, onRemove }) {
+  const [errored, setErrored] = useState(false)
+  const [key, setKey] = useState(0)
+
+  const src = `/api/stream/video?topic=${encodeURIComponent(topic)}`
+
+  const refresh = () => {
+    setErrored(false)
+    setKey(k => k + 1)
+  }
+
+  return (
+    <div className="stream-box">
+      <div className="stream-header">
+        <span className="stream-label">{label || topic}</span>
+        <div className="stream-header-actions">
+          <button className="stream-btn" onClick={refresh} title="Reconnect">&#8635;</button>
+          {onRemove && (
+            <button className="stream-btn stream-btn-remove" onClick={onRemove} title="Remove">&#10005;</button>
+          )}
+        </div>
+      </div>
+      <div className="stream-view">
+        {errored ? (
+          <div className="stream-error">
+            <span>No stream</span>
+            <button className="stream-btn" onClick={refresh}>Retry</button>
+          </div>
+        ) : (
+          <img
+            key={key}
+            src={src}
+            className="stream-img"
+            onError={() => setErrored(true)}
+            alt={topic}
+          />
+        )}
+      </div>
+      <div className="stream-topic">{topic}</div>
+    </div>
+  )
+}
+
+function VideoStreams() {
+  const [streams, setStreams] = useState(DEFAULT_STREAMS)
+  const [newTopic, setNewTopic] = useState('')
+  const [addOpen, setAddOpen] = useState(false)
+
+  const addStream = () => {
+    const t = newTopic.trim()
+    if (!t) return
+    const label = t.split('/').filter(Boolean).join(' / ')
+    setStreams(prev => [...prev, { topic: t, label }])
+    setNewTopic('')
+    setAddOpen(false)
+  }
+
+  const removeStream = (idx) => {
+    setStreams(prev => prev.filter((_, i) => i !== idx))
+  }
+
+  return (
+    <div className="card card-full">
+      <div className="stream-title-row">
+        <h2 className="card-title" style={{ margin: 0 }}>Video &amp; Debug Streams</h2>
+        <button className="stream-btn stream-btn-add" onClick={() => setAddOpen(o => !o)}>
+          {addOpen ? 'Cancel' : '+ Add stream'}
+        </button>
+      </div>
+
+      {addOpen && (
+        <div className="stream-add-row">
+          <input
+            type="text"
+            className="stream-topic-input"
+            placeholder="/px4_1/camera or /px4_1/camera/compressed"
+            value={newTopic}
+            onChange={e => setNewTopic(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && addStream()}
+          />
+          <button className="stream-btn stream-btn-confirm" onClick={addStream}>Add</button>
+        </div>
+      )}
+
+      <div className="stream-grid">
+        {streams.map((s, i) => (
+          <StreamBox
+            key={`${s.topic}-${i}`}
+            topic={s.topic}
+            label={s.label}
+            onRemove={() => removeStream(i)}
+          />
+        ))}
+        {streams.length === 0 && (
+          <div className="placeholder-box" style={{ gridColumn: '1 / -1' }}>
+            No streams configured. Click "+ Add stream" to add a ROS topic.
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function MissionControl({ onRefresh }) {
+  return <LocalLaunchPanel onRefresh={onRefresh} />
+}
+
+function LocalLaunchPanel({ onRefresh }) {
+  const connected = true
   const [paramsMode, setParamsMode] = useState('form')
   const {
     terminalHostRef,
@@ -645,7 +754,7 @@ function MissionControl({ connected, buildInfo, onRefresh }) {
     saveParams,
     runAction,
     refreshLaunchData,
-  } = useMissionControl({ connected, onRefresh })
+  } = useMissionControl({ connected, onRefresh, droneId: null })
 
   const updateField = (field, value) => {
     setParamsText(prev => setYamlFieldValue(prev, field.key, field.type, value))
@@ -654,14 +763,13 @@ function MissionControl({ connected, buildInfo, onRefresh }) {
   const selectedMissionName = `${getYamlFieldValue(paramsText, 'mission_name', 'string') || ''}`.trim()
 
   useEffect(() => {
-    if (!connected || !selectedMissionName) {
+    if (!selectedMissionName) {
       setMissionFileText('')
       setMissionFileResult(null)
       return
     }
     loadMissionFile(selectedMissionName)
   }, [
-    connected,
     loadMissionFile,
     selectedMissionName,
     setMissionFileResult,
@@ -767,48 +875,32 @@ function MissionControl({ connected, buildInfo, onRefresh }) {
 
   return (
     <>
-      <div className="grid mission-grid">
-        <div className="card">
-          <h2 className="card-title">Current Build On Pi</h2>
-          <div className="info-box">
-            <pre>
-              {connected
-                ? (buildInfo?.info || 'No build metadata available')
-                : 'Pi is unreachable. Connect to the Pi WiFi to read build metadata.'}
-            </pre>
-          </div>
-          <div className="launch-state-row">
+      <div className="card">
+        <h2 className="card-title">Mission Actions</h2>
+        <div className="card-content">
+          <div className="launch-state-row" style={{ marginBottom: '0.75rem' }}>
             <span className={`launch-pill ${launchStateClass(missionState)}`}>
               {launchStateLabel(missionState)}
             </span>
-            {connected && missionState?.pid && <span className="launch-pid">PID {missionState.pid}</span>}
-            {connected && missionState?.launch_state === 'running' && (
+            {missionState?.pid && <span className="launch-pid">PID {missionState.pid}</span>}
+            {missionState?.launch_state === 'running' && (
               <span className={`launch-pill ${streamConnected ? 'pill-running' : 'pill-not-prepared'}`}>
                 {streamConnected ? 'Live Stream Connected' : 'Connecting Live Stream'}
               </span>
             )}
           </div>
+          {LOCAL_MISSION_ACTIONS.map(action => (
+            <button
+              key={action.key}
+              className={action.className}
+              onClick={() => runAction(action.key, action.url)}
+              disabled={actionLoading !== ''}
+            >
+              {actionLoading === action.key ? action.loadingLabel : action.label}
+            </button>
+          ))}
         </div>
-
-        <div className="card">
-          <h2 className="card-title">Mission Actions</h2>
-          <div className="card-content">
-            {MISSION_ACTIONS.map(action => (
-              <button
-                key={action.key}
-                className={action.className}
-                onClick={() => runAction(action.key, action.url)}
-                disabled={actionLoading !== '' || !connected}
-              >
-                {actionLoading === action.key ? action.loadingLabel : action.label}
-              </button>
-            ))}
-            {!connected && (
-              <p className="subtext left-note">Connect to the Pi WiFi to enable mission actions.</p>
-            )}
-          </div>
-          <Result data={actionResult} />
-        </div>
+        <Result data={actionResult} />
       </div>
 
       <div className="card card-full">
@@ -818,10 +910,6 @@ function MissionControl({ connected, buildInfo, onRefresh }) {
             <button className={`mini-tab ${paramsMode === 'form' ? 'mini-tab-active' : ''}`} onClick={() => setParamsMode('form')}>Form View</button>
             <button className={`mini-tab ${paramsMode === 'raw' ? 'mini-tab-active' : ''}`} onClick={() => setParamsMode('raw')}>Raw YAML</button>
           </div>
-
-          {!connected && (
-            <p className="subtext left-note">Connect to the Pi WiFi to load and edit `launch_params.yaml`.</p>
-          )}
 
           {paramsMode === 'form' ? (
             <div className="params-layout">
@@ -849,31 +937,29 @@ function MissionControl({ connected, buildInfo, onRefresh }) {
           )}
 
           <div className="row-actions">
-            <button className="btn btn-secondary" onClick={loadParams} disabled={paramsLoading || !connected}>
-              {paramsLoading ? 'Loading...' : 'Reload From Pi'}
+            <button className="btn btn-secondary" onClick={loadParams} disabled={paramsLoading}>
+              {paramsLoading ? 'Loading...' : 'Reload'}
             </button>
-            <button className="btn btn-primary" onClick={saveParams} disabled={paramsLoading || !connected}>
+            <button className="btn btn-primary" onClick={saveParams} disabled={paramsLoading}>
               {paramsLoading ? 'Saving...' : 'Save Params'}
             </button>
           </div>
-          <p className="subtext left-note">Reload discards unsaved local edits and re-reads the file from the Pi.</p>
-          {connected && <Result data={paramsResult} />}
+          <p className="subtext left-note">Reload discards unsaved local edits and re-reads the local file.</p>
+          <Result data={paramsResult} />
         </div>
       </div>
 
       <div className="card card-full">
         <h2 className="card-title">Launch Output (ros2 launch uav main.launch.py)</h2>
         <div className="card-content">
-          <button className="btn btn-secondary" onClick={() => refreshLaunchData(true)} disabled={!connected}>Refresh Logs Now</button>
-          <p className="subtext left-note">
-            {connected
-              ? 'Live SSH stream runs while launch is running. Refresh re-syncs full log history.'
-              : 'Connect to the Pi WiFi to stream launch output.'}
-          </p>
+          <button className="btn btn-secondary" onClick={() => refreshLaunchData(true)}>Refresh Logs Now</button>
+          <p className="subtext left-note">Live stream runs while launch is running. Refresh re-syncs full log history.</p>
           <div ref={terminalHostRef} className="terminal-output terminal-host" />
-          {connected && <Result data={logsResult} />}
+          <Result data={logsResult} />
         </div>
       </div>
+
+      <VideoStreams />
 
       <div className="card card-full">
         <h2 className="card-title">
@@ -884,13 +970,10 @@ function MissionControl({ connected, buildInfo, onRefresh }) {
           )
         </h2>
         <div className="card-content">
-          {!connected && (
-            <p className="subtext left-note">Connect to the Pi WiFi to view and edit mission YAML.</p>
-          )}
-          {connected && !selectedMissionName && (
+          {!selectedMissionName && (
             <p className="subtext left-note">Set `mission_name` in launch params to load a mission YAML file.</p>
           )}
-          {connected && selectedMissionName && (
+          {selectedMissionName && (
             <>
               <textarea
                 className="yaml-editor mission-editor"
@@ -916,7 +999,7 @@ function MissionControl({ connected, buildInfo, onRefresh }) {
                 </button>
               </div>
               <p className="subtext left-note">
-                Edits are saved on the Pi inside `src/uav/uav/missions` for the selected mission name.
+                Edits are saved locally inside `src/uav/uav/missions` for the selected mission name.
               </p>
               <Result data={missionFileResult} />
             </>
@@ -924,14 +1007,101 @@ function MissionControl({ connected, buildInfo, onRefresh }) {
         </div>
       </div>
 
-      <div className="card card-full">
-        <h2 className="card-title">Video & Debug Streams</h2>
-        <div className="placeholder-grid">
-          <div className="placeholder-box">Camera feed placeholder</div>
-          <div className="placeholder-box">CV debug stream placeholder</div>
+    </>
+  )
+}
+
+// ── Pi Connections page ──────────────────────────────────────────────────────
+
+function stateLabel(state) {
+  if (state === 'running') return 'Running'
+  if (state === 'stopped') return 'Stopped'
+  if (state === 'not_started') return 'Not started'
+  if (state === 'offline') return 'Offline'
+  if (state === 'error') return 'Error'
+  return 'Unknown'
+}
+
+function stateClass(state) {
+  if (state === 'running') return 'pill-running'
+  if (state === 'stopped') return 'pill-stopped'
+  if (state === 'offline' || state === 'error') return 'pill-offline'
+  return 'pill-not-prepared'
+}
+
+function PiDronePanel({ droneId, name, host, connected }) {
+  const { terminalHostRef, status, streamConnected, actionLoading, actionResult, launch, stop } =
+    usePiSetup(droneId, connected)
+
+  return (
+    <div className="pi-drone-panel">
+      <div className="pi-drone-header">
+        <div className="pi-drone-title">
+          <span className={`status-dot ${connected ? 'dot-ok' : 'dot-err'}`} />
+          <span className="pi-drone-name">{name} / {droneId}</span>
+          <span className="pi-drone-host">{host}</span>
+        </div>
+        <div className="pi-drone-pills">
+          <span className={`launch-pill ${stateClass(status.state)}`}>
+            {stateLabel(status.state)}
+          </span>
+          {status.running && (
+            <span className={`launch-pill ${streamConnected ? 'pill-running' : 'pill-not-prepared'}`}>
+              {streamConnected ? 'Live' : 'Connecting...'}
+            </span>
+          )}
+          {status.pid && <span className="launch-pid">PID {status.pid}</span>}
         </div>
       </div>
-    </>
+
+      <div className="pi-drone-actions">
+        <button
+          className="btn btn-mission-prepare"
+          style={{ width: 'auto', padding: '0.45rem 1rem' }}
+          onClick={launch}
+          disabled={!!actionLoading || !connected}
+        >
+          {actionLoading === 'launch' ? 'Launching...' : status.running ? 'Rebuild & Relaunch' : 'Build & Launch'}
+        </button>
+        <button
+          className="btn btn-mission-stop"
+          style={{ width: 'auto', padding: '0.45rem 1rem' }}
+          onClick={stop}
+          disabled={!!actionLoading || !connected || !status.running}
+        >
+          {actionLoading === 'stop' ? 'Stopping...' : 'Stop'}
+        </button>
+        {actionResult && (
+          <span className={`pi-action-result ${actionResult.success ? 'result-ok' : 'result-err'}`}>
+            {actionResult.success ? (actionResult.output || 'Done') : (actionResult.error || 'Failed')}
+          </span>
+        )}
+      </div>
+
+      <div ref={terminalHostRef} className="terminal-output terminal-host pi-terminal" />
+
+      {!connected && (
+        <p className="subtext left-note" style={{ padding: '0 0.5rem 0.5rem' }}>
+          Pi unreachable. Check connection to {host}.
+        </p>
+      )}
+    </div>
+  )
+}
+
+function PiConnectionsPage({ fleetStatus }) {
+  return (
+    <div className="pi-connections-page">
+      {DRONE_FLEET.map(d => (
+        <PiDronePanel
+          key={d.id}
+          droneId={d.id}
+          name={d.name}
+          host={fleetStatus?.[d.id]?.host || ''}
+          connected={fleetStatus?.[d.id]?.connected ?? false}
+        />
+      ))}
+    </div>
   )
 }
 
@@ -985,6 +1155,7 @@ function App() {
   const [buildInfo, setBuildInfo] = useState(null)
   const [sshCommand, setSshCommand] = useState('')
   const [pollError, setPollError] = useState(null)
+  const [fleetStatus, setFleetStatus] = useState({})
 
   const refreshAll = useCallback(async () => {
     const conn = await api('/api/connection/status')
@@ -1002,11 +1173,18 @@ function App() {
       return
     }
 
-    const [wifi, build, ssh] = await Promise.all([
+    const [wifi, build, ssh, fleet] = await Promise.all([
       api('/api/wifi/status'),
       api('/api/builds/current'),
       sshPromise,
+      api('/api/drones'),
     ])
+
+    if (fleet?.success && Array.isArray(fleet.drones)) {
+      const statusMap = {}
+      for (const d of fleet.drones) statusMap[d.id] = d
+      setFleetStatus(statusMap)
+    }
 
     setWifiStatus(wifi.success ? wifi : null)
     setBuildInfo(build.success ? build : null)
@@ -1040,7 +1218,7 @@ function App() {
       <SettingsPanel onRefresh={refreshAll} />
 
       <h1 className="title">PennAiR Auton Deploy</h1>
-      <StatusBar connected={connected} wifiStatus={wifiStatus} buildInfo={buildInfo} />
+      <StatusBar connected={connected} wifiStatus={wifiStatus} buildInfo={buildInfo} fleetStatus={fleetStatus} />
       <Result data={pollError} />
 
       <div className="top-controls">
@@ -1057,16 +1235,26 @@ function App() {
           >
             Deploy
           </button>
+          <button
+            className={`tab-btn ${page === 'pi' ? 'tab-active' : ''}`}
+            onClick={() => setPage('pi')}
+          >
+            Pi Connections
+          </button>
         </div>
         <button className="theme-toggle-btn" type="button" onClick={toggleTheme}>
           {theme === THEME_DARK ? 'Light Mode' : 'Dark Mode'}
         </button>
       </div>
 
-      {page === 'mission' ? (
-        <MissionControl connected={connected} buildInfo={buildInfo} onRefresh={refreshAll} />
-      ) : (
+      {page === 'mission' && (
+        <MissionControl onRefresh={refreshAll} />
+      )}
+      {page === 'deploy' && (
         <DeployPage connected={connected} sshCommand={sshCommand} wifiStatus={wifiStatus} buildInfo={buildInfo} onRefresh={refreshAll} />
+      )}
+      {page === 'pi' && (
+        <PiConnectionsPage fleetStatus={fleetStatus} />
       )}
     </div>
   )

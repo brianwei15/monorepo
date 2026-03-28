@@ -32,7 +32,7 @@ ensure_python_backend_deps() {
     "$python_bin" - <<'PY'
 import importlib.util
 
-required = ["fastapi", "httpx", "multipart", "uvicorn"]
+required = ["fastapi", "httpx", "multipart", "uvicorn", "websockets"]
 missing = [name for name in required if importlib.util.find_spec(name) is None]
 if missing:
     print(" ".join(missing))
@@ -40,7 +40,7 @@ if missing:
 PY
   )"; then
     echo "Backend Python dependencies missing (${missing_modules:-unknown}). Installing..."
-    if ! "$python_bin" -m pip install "fastapi[standard]" python-multipart httpx; then
+    if ! "$python_bin" -m pip install "fastapi[standard]" python-multipart httpx websockets; then
       echo "Error: failed to install backend Python dependencies."
       echo "Try manually:"
       echo "  $python_bin -m pip install \"fastapi[standard]\" python-multipart httpx"
@@ -135,10 +135,27 @@ if ! npm --prefix "$FRONTEND_DIR" ls --depth=0 @xterm/xterm >/dev/null 2>&1; the
   npm --prefix "$FRONTEND_DIR" install
 fi
 
+# Source ROS Humble and workspace if not already sourced
+# Use set +u temporarily — ROS setup scripts reference unbound vars
+set +u
+if [ -z "${ROS_DISTRO:-}" ]; then
+  source /opt/ros/humble/setup.bash
+fi
+if [ -f "$SCRIPT_DIR/install/setup.bash" ]; then
+  source "$SCRIPT_DIR/install/setup.bash"
+fi
+set -u
+
 if [ -n "${CONDA_PREFIX:-}" ]; then
   ensure_python_backend_deps python
   BACKEND_CMD=(python app.py)
   BACKEND_LABEL="python app.py (conda env: $(basename "$CONDA_PREFIX"))"
+elif [ -n "${ROS_DISTRO:-}" ] && command -v python3 >/dev/null 2>&1; then
+  # ROS workspace is sourced — use system python3 directly so rclpy/numpy are
+  # available for camera streaming (uv isolates its venv and loses them).
+  ensure_python_backend_deps python3
+  BACKEND_CMD=(python3 app.py)
+  BACKEND_LABEL="python3 app.py (ROS $ROS_DISTRO)"
 elif command -v uv >/dev/null 2>&1; then
   BACKEND_CMD=(uv run app.py)
   BACKEND_LABEL="uv run app.py"
