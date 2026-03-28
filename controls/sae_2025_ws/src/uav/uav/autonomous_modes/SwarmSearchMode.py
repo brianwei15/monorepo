@@ -4,54 +4,26 @@ from rclpy.node import Node
 from uav import UAV
 
 
-# ----------------------------------------------------------------
-# Search pattern parameters (body frame: fwd = forward, right = right)
-# ----------------------------------------------------------------
-# Per-drone search altitudes (NED z, negative = up). Add/remove entries to match drone count.
-SEARCH_ALTITUDES = [-5.0, -8.0, -11.0]  # Drone 1: 5m, Drone 2: 8m, Drone 3: 11m AGL
-
-STRIP_WIDTH  = 5.0   # metres between parallel snake passes
-FORWARD_DIST = 15.0  # metres forward per pass
-N_STRIPS     = 3     # number of forward/back passes
-
-MARGIN = 1.5         # metres — arrival tolerance
-
-
-def _make_snake_waypoints_body(alt: float) -> list:
-    """
-    Lawnmower waypoints in the drone's *body frame*:
-      fwd   = forward (along initial heading)
-      right = right (perpendicular, CW from forward)
-
-    Returns a list of (fwd, right, z) tuples.
-    The pattern starts at the drone's spawn and sweeps forward
-    FORWARD_DIST metres, stepping right by STRIP_WIDTH each pass.
-    """
+def _make_snake_waypoints_body(
+    alt: float, right_start: float, n_strips: int, strip_width: float, forward_dist: float
+) -> list:
     wps = []
-    for i in range(N_STRIPS):
-        right_pos = i * STRIP_WIDTH
-        if i % 2 == 0:                      # outward pass
+    for j in range(n_strips):
+        right_pos = right_start + j * strip_width
+        if j % 2 == 0:
             wps.append((0.0,          right_pos, alt))
-            wps.append((FORWARD_DIST, right_pos, alt))
-        else:                               # return pass
-            wps.append((FORWARD_DIST, right_pos, alt))
+            wps.append((forward_dist, right_pos, alt))
+        else:
+            wps.append((forward_dist, right_pos, alt))
             wps.append((0.0,          right_pos, alt))
-        if i < N_STRIPS - 1:               # lateral step to next strip
-            next_right = (i + 1) * STRIP_WIDTH
-            end_fwd = FORWARD_DIST if i % 2 == 0 else 0.0
+        if j < n_strips - 1:
+            next_right = right_start + (j + 1) * strip_width
+            end_fwd = forward_dist if j % 2 == 0 else 0.0
             wps.append((end_fwd, next_right, alt))
     return wps
 
 
 def _body_to_ned(fwd: float, right: float, yaw_ned: float) -> tuple:
-    """
-    Rotate a body-frame offset (fwd, right) to NED (north, east) using
-    the drone's NED heading yaw_ned (radians, 0 = North, π/2 = East).
-
-    NED rotation:
-        north = fwd * cos(yaw) - right * sin(yaw)
-        east  = fwd * sin(yaw) + right * cos(yaw)
-    """
     north = fwd * math.cos(yaw_ned) - right * math.sin(yaw_ned)
     east  = fwd * math.sin(yaw_ned) + right * math.cos(yaw_ned)
     return north, east
@@ -60,36 +32,48 @@ def _body_to_ned(fwd: float, right: float, yaw_ned: float) -> tuple:
 class SwarmSearchMode(Mode):
     """
     Snake (lawnmower) search for every drone in the swarm.
-
-    Waypoints are defined in each drone's body frame (forward / right relative
-    to its spawn position) and then rotated into NED using the reference heading
-    captured by SwarmTakeoffMode from the middle drone's initial yaw.
-
-    This means the search pattern follows the physical placement direction of the
-    drones, regardless of where PX4 happens to be pointing them at startup.
-
-    Complete when all drones have visited every waypoint.
+    All parameters are read from the mission YAML params block.
     """
 
-    def __init__(self, node: Node, uav: UAV):
+    def __init__(
+        self,
+        node: Node,
+        uav: UAV,
+        search_heading_deg: float = 0.0,
+        search_altitudes: list = None,
+        strip_width: float = 5.0,
+        forward_dist: float = 15.0,
+        n_strips: int = 3,
+        drone_spacing: float = 6.0,
+        margin: float = 1.5,
+    ):
         super().__init__(node, uav)
         self.uavs = [getattr(node, f"uav{i}") for i in range(1, len(node._all_uavs) + 1)]
-        # Waypoints are built in on_enter so that the reference yaw captured by
-        # SwarmTakeoffMode.on_enter() is already available on the node.
+
+        self._heading_deg   = search_heading_deg
+        self._altitudes     = search_altitudes if search_altitudes is not None else [-5.0, -8.0, -11.0]
+        self._strip_width   = strip_width
+        self._forward_dist  = forward_dist
+        self._n_strips      = n_strips
+        self._drone_spacing = drone_spacing
+        self._margin        = margin
+
         self._waypoints = []
-        self._wp_index = [0] * len(self.uavs)
+        self._wp_index  = [0] * len(self.uavs)
 
     def on_enter(self) -> None:
-        # Read the reference yaw written by SwarmTakeoffMode; default to 0 (North) if missing.
-        ref_yaw = getattr(self.node, "swarm_reference_yaw", 0.0)
-        self.log(f"Using reference yaw: {ref_yaw:.3f} rad ({math.degrees(ref_yaw):.1f}°)")
+        ref_yaw = math.radians(self._heading_deg)
+        self.log(f"Search heading: {self._heading_deg}° → {ref_yaw:.3f} rad NED")
 
-        # Rotate body-frame waypoints to NED for every drone.
-        # Each drone flies at its own altitude; same XY pattern translated by spawn.
         self._waypoints = []
-        for i in range(len(self.uavs)):
-            alt = SEARCH_ALTITUDES[i] if i < len(SEARCH_ALTITUDES) else SEARCH_ALTITUDES[-1]
-            body_wps = _make_snake_waypoints_body(alt)
+        n = len(self.uavs)
+        for i in range(n):
+            right_start = (i - (n - 1) / 2.0) * self._drone_spacing
+            alt = self._altitudes[i] if i < len(self._altitudes) else self._altitudes[-1]
+            self.log(f"Drone {i+1}: right_start={right_start:.1f}m, alt={alt}m")
+            body_wps = _make_snake_waypoints_body(
+                alt, right_start, self._n_strips, self._strip_width, self._forward_dist
+            )
             ned_wps = [
                 (*_body_to_ned(fwd, right, ref_yaw), z)
                 for (fwd, right, z) in body_wps
@@ -102,7 +86,6 @@ class SwarmSearchMode(Mode):
         for i, uav in enumerate(self.uavs):
             waypoints = self._waypoints[i]
             if self._wp_index[i] >= len(waypoints):
-                # Finished — hold current position
                 if uav.local_position:
                     uav.publish_position_setpoint(
                         (uav.local_position.x, uav.local_position.y, uav.local_position.z),
@@ -119,7 +102,7 @@ class SwarmSearchMode(Mode):
                     + (uav.local_position.y - wp[1]) ** 2
                     + (uav.local_position.z - wp[2]) ** 2
                 )
-                if dist < MARGIN:
+                if dist < self._margin:
                     self.log(
                         f"Drone {i + 1}: reached waypoint {self._wp_index[i] + 1}/{len(waypoints)}"
                     )

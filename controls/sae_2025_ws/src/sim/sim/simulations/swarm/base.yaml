@@ -4,7 +4,7 @@ world:
     template_world: "src/sim/sim/world_gen/worlds/template.sdf"   # Gazebo world template
     physics:
       friction: 0.6 # friction coefficient for the ground plane
-    vehicle_pose:   [0.0,  0.0, 0.0, 0.0, 0.0, 0.785]  # [x, y, z, roll, pitch, yaw] — 45° test heading
-    vehicle_pose_2: [0.0,  2.5, 0.0, 0.0, 0.0, 0.0]
-    vehicle_pose_3: [0.0, -2.5, 0.0, 0.0, 0.0, 0.0]
+    vehicle_pose:   [0.0,  0.0, 0.0, 0.0, 0.0,  0.0]   # [x, y, z, roll, pitch, yaw] Gazebo ENU
+    vehicle_pose_2: [0.0,  2.5, 0.0, 0.0, 0.0,  1.2]   # ~69° from East — different starting heading
+    vehicle_pose_3: [0.0, -2.5, 0.0, 0.0, 0.0, -0.9]   # ~-52° from East — different starting heading
   

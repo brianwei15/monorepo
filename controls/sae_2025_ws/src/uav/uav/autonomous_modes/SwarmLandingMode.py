@@ -6,7 +6,8 @@ from px4_msgs.msg import VehicleStatus
 
 
 RETURN_ALTITUDE = -5.0  # NED z — altitude to hold while returning to origin (5m AGL)
-RETURN_MARGIN = 1.5     # meters — arrival tolerance for origin waypoint
+RETURN_MARGIN_XY = 0.5  # metres — horizontal arrival tolerance before landing
+RETURN_MARGIN_Z  = 1.5  # metres — vertical tolerance (looser, altitude varies more)
 
 
 class SwarmLandingMode(Mode):
@@ -29,12 +30,11 @@ class SwarmLandingMode(Mode):
                 origin = (0.0, 0.0, RETURN_ALTITUDE)
                 uav.publish_position_setpoint(origin)
                 if uav.local_position:
-                    dist = math.sqrt(
-                        uav.local_position.x ** 2
-                        + uav.local_position.y ** 2
-                        + (uav.local_position.z - RETURN_ALTITUDE) ** 2
+                    xy_dist = math.sqrt(
+                        uav.local_position.x ** 2 + uav.local_position.y ** 2
                     )
-                    if dist < RETURN_MARGIN:
+                    z_dist = abs(uav.local_position.z - RETURN_ALTITUDE)
+                    if xy_dist < RETURN_MARGIN_XY and z_dist < RETURN_MARGIN_Z:
                         self.log(f"Drone {i+1}: at origin, initiating land")
                         self._phase[i] = "landing"
             else:

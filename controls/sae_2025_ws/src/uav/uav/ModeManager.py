@@ -168,13 +168,16 @@ class ModeManager(Node):
                     "uav",
                 ):
                     args[name] = param_value
-                else:
+                elif isinstance(param_value, str):
                     try:
                         args[name] = ast.literal_eval(param_value)
                     except (ValueError, SyntaxError):
                         raise ValueError(
                             f"Parameter '{name}' must be a valid literal for mode '{mode_path}'. Received: {param_value}"
                         )
+                else:
+                    # YAML already parsed the value (int, float, list, bool, etc.)
+                    args[name] = param_value
             elif param.default != inspect.Parameter.empty:
                 args[name] = param.default
             else:
