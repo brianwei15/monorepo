@@ -14,6 +14,9 @@ class SwarmWorldNode(WorldNode):
         physics: Optional[dict] = None,
         output_filename: Optional[str] = None,
         seed: Optional[int] = None,
+        vehicle_pose: Optional[list] = None,
+        vehicle_pose_2: Optional[list] = None,
+        vehicle_pose_3: Optional[list] = None,
         **kwargs,
     ):
         super().__init__(

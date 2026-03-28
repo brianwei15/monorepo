@@ -1,5 +1,5 @@
 # launch_params.yaml
-mission_name: hover
+mission_name: swarm_search
 uav_debug: false
 vision_debug: false
 auto_launch: true

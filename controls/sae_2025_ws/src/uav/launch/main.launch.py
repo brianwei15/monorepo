@@ -268,6 +268,14 @@ def launch_setup(context, *args, **kwargs):
             "vehicle_pose", [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
         )  # [x, y, z, roll, pitch, yaw]
         vehicle_pose_str = ",".join(str(pose) for pose in vehicle_pose)
+        vehicle_pose2 = sim_stage_params["world"]["params"].get(
+            "vehicle_pose_2", [0.0, 2.5, 0.0, 0.0, 0.0, 0.0]
+        )
+        vehicle_pose2_str = ",".join(str(pose) for pose in vehicle_pose2)
+        vehicle_pose3 = sim_stage_params["world"]["params"].get(
+            "vehicle_pose_3", [0.0, -2.5, 0.0, 0.0, 0.0, 0.0]
+        )
+        vehicle_pose3_str = ",".join(str(pose) for pose in vehicle_pose3)
         logger.info(f"Spawning vehicle at pose: {vehicle_pose_str}")
 
         world_params_dict = sim_stage_params["world"]["params"]
@@ -317,7 +325,7 @@ def launch_setup(context, *args, **kwargs):
             cmd=[
                 "bash",
                 "-c",
-                f"PX4_GZ_MODEL_POSE='{vehicle_pose_str}' PX4_GZ_WORLD={competition} PX4_GZ_STANDALONE=1 PX4_SYS_AUTOSTART={autostart} PX4_SIM_MODEL={model} ./build/px4_sitl_default/bin/px4 -i 1",
+                f"PX4_GZ_MODEL_POSE='{vehicle_pose_str}' PX4_GZ_WORLD={competition} PX4_GZ_STANDALONE=1 PX4_SYS_AUTOSTART={autostart} PX4_SIM_MODEL={model} ./build/px4_sitl_default/bin/px4 -i {ids[0]}",
             ],
             cwd=px4_path,
             output="screen",
@@ -328,23 +336,46 @@ def launch_setup(context, *args, **kwargs):
             cmd=[
                 "bash",
                 "-c",
-                f"PX4_GZ_MODEL_POSE='0,2.5,0,0,0,0' PX4_GZ_WORLD={competition} PX4_GZ_STANDALONE=1 PX4_SYS_AUTOSTART=4014 PX4_SIM_MODEL=gz_x500_mono_cam_down ./build/px4_sitl_default/bin/px4 -i 2",
+                f"PX4_GZ_MODEL_POSE='{vehicle_pose2_str}' PX4_GZ_WORLD={competition} PX4_GZ_STANDALONE=1 PX4_SYS_AUTOSTART={autostart} PX4_SIM_MODEL=gz_x500_mono_cam_down ./build/px4_sitl_default/bin/px4 -i {ids[1]}",
             ],
             cwd=px4_path,
             output="screen",
             name="px4_sitl2",
-        )
+        ) if len(ids) >= 2 else None
 
         px4_sitl3 = ExecuteProcess(
             cmd=[
                 "bash",
                 "-c",
-                f"PX4_GZ_MODEL_POSE='0,-2.5,0,0,0,0' PX4_GZ_WORLD={competition} PX4_GZ_STANDALONE=1 PX4_SYS_AUTOSTART=4014 PX4_SIM_MODEL=gz_x500_mono_cam_down ./build/px4_sitl_default/bin/px4 -i 3",
+                f"PX4_GZ_MODEL_POSE='{vehicle_pose3_str}' PX4_GZ_WORLD={competition} PX4_GZ_STANDALONE=1 PX4_SYS_AUTOSTART={autostart} PX4_SIM_MODEL=gz_x500_mono_cam_down ./build/px4_sitl_default/bin/px4 -i {ids[2]}",
             ],
             cwd=px4_path,
             output="screen",
-            name="px4_sitl2",
-        )
+            name="px4_sitl3",
+        ) if len(ids) >= 3 else None
+
+        active_sitls = [s for s in [px4_sitl, px4_sitl2, px4_sitl3] if s is not None]
+
+        gz_ros_bridge_camera2 = Node(
+            package="ros_gz_bridge",
+            executable="parameter_bridge",
+            arguments=[f"/world/{competition}/model/x500_mono_cam_down_1/link/camera_link/sensor/camera/image@sensor_msgs/msg/Image[gz.msgs.Image"],
+            remappings=[(f"/world/{competition}/model/x500_mono_cam_down_1/link/camera_link/sensor/camera/image", "/camera_1")],
+            output="screen",
+            name="gz_ros_bridge_camera2",
+        ) if len(ids) >= 2 else None
+
+        gz_ros_bridge_camera3 = Node(
+            package="ros_gz_bridge",
+            executable="parameter_bridge",
+            arguments=[f"/world/{competition}/model/x500_mono_cam_down_2/link/camera_link/sensor/camera/image@sensor_msgs/msg/Image[gz.msgs.Image"],
+            remappings=[(f"/world/{competition}/model/x500_mono_cam_down_2/link/camera_link/sensor/camera/image", "/camera_2")],
+            output="screen",
+            name="gz_ros_bridge_camera3",
+        ) if len(ids) >= 3 else None
+
+        extra_camera_bridges = [b for b in [gz_ros_bridge_camera2, gz_ros_bridge_camera3] if b is not None]
+
         actions = [
             sim,
             RegisterEventHandler(
@@ -352,12 +383,11 @@ def launch_setup(context, *args, **kwargs):
                     on_stderr=lambda event: (
                         [
                             LogInfo(msg="Gazebo process started."),
-                            px4_sitl,
-                            px4_sitl2,
-                            px4_sitl3,
+                            *active_sitls,
                             *vision_node_actions,
                             middleware,
                             *payload_launch_actions,
+                            *extra_camera_bridges,
                         ]
                         if b"Successfully generated world file:" in event.text
                         else None
