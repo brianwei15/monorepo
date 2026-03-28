@@ -23,6 +23,8 @@ class ConfigPayload(BaseModel):
     ssh_pass: str
     github_repo: str
     hotspot_name: str
+    px4_path: str
+    local_ws_dir: str
 
 
 class ConfigResponse(BaseModel):

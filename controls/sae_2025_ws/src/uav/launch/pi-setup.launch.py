@@ -11,6 +11,7 @@ def launch_setup(context, *args, **kwargs):
     proxy_ip = LaunchConfiguration("proxy_ip").perform(context)
     udp_port = LaunchConfiguration("udp_port").perform(context)
     px4_id = LaunchConfiguration("px4_id").perform(context)
+    thermal = LaunchConfiguration("thermal").perform(context)
     ns = f"/px4_{px4_id}" if px4_id else ""
 
     middleware = ExecuteProcess(
@@ -52,11 +53,45 @@ def launch_setup(context, *args, **kwargs):
         name="v4l2_cam",
     )
 
+    thermal_cam = ExecuteProcess(
+        cmd=[
+            "ros2", "run", "v4l2_camera", "v4l2_camera_node",
+            "--ros-args",
+            "-p", "video_device:=/dev/video0",
+            "-p", "image_size:=[160,120]",
+            "-p", "framerate:=9",
+            "--remap", f"/image_raw:={ns}/thermal/image_raw",
+            "--remap", f"/image_raw/compressed:={ns}/thermal/image_raw/compressed",
+            "--remap", f"/camera_info:={ns}/thermal/camera_info",
+        ],
+        output="screen",
+        name="thermal_cam",
+    )
+
+    rgb_cam = ExecuteProcess(
+        cmd=[
+            "ros2", "run", "v4l2_camera", "v4l2_camera_node",
+            "--ros-args",
+            "-p", "video_device:=/dev/video2",
+            "-p", "image_size:=[640,480]",
+            "-p", "framerate:=30",
+            "--remap", f"/image_raw:={ns}/rgb/image_raw",
+            "--remap", f"/image_raw/compressed:={ns}/rgb/image_raw/compressed",
+            "--remap", f"/camera_info:={ns}/rgb/camera_info",
+        ],
+        output="screen",
+        name="rgb_cam",
+    )
+
     actions = [
         middleware,
         maxproxy,
-        v4l2_cam,
     ]
+
+    if thermal.lower() == "true":
+        actions += [thermal_cam, rgb_cam]
+    else:
+        actions.append(v4l2_cam)
 
     return actions
 
@@ -72,6 +107,7 @@ def generate_launch_description():
             DeclareLaunchArgument("proxy_ip", default_value="10.42.0.1"),
             DeclareLaunchArgument("udp_port", default_value="14550"),
             DeclareLaunchArgument("px4_id", default_value="1"),
+            DeclareLaunchArgument("thermal", default_value="false"),
             OpaqueFunction(function=launch_setup),
         ]
     )

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -11,14 +13,25 @@ from .routers import (
     config_router,
     connection_router,
     deploy_router,
+    drones_router,
     mission_router,
+    pi_connections_router,
+    stream_router,
     terminal_ws_router,
     wifi_router,
 )
+from .services import ros_stream
 
 
 def create_app(base_dir: Path) -> FastAPI:
-    app = FastAPI(title="PennAiR Auton Deploy")
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        loop = asyncio.get_event_loop()
+        ros_stream.ros_init(loop)
+        yield
+        ros_stream.ros_shutdown()
+
+    app = FastAPI(title="PennAiR Auton Deploy", lifespan=lifespan)
 
     app.add_middleware(
         CORSMiddleware,
@@ -36,6 +49,9 @@ def create_app(base_dir: Path) -> FastAPI:
     app.include_router(deploy_router(ctx))
     app.include_router(mission_router(ctx))
     app.include_router(terminal_ws_router(ctx))
+    app.include_router(drones_router(ctx))
+    app.include_router(pi_connections_router(ctx))
+    app.include_router(stream_router())
 
     frontend_dist = base_dir / "frontend" / "dist"
     if frontend_dist.exists():

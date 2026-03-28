@@ -26,6 +26,8 @@ def build_router(ctx: AppContext) -> APIRouter:
         ssh_pass: Annotated[str | None, Form()] = None,
         github_repo: Annotated[str | None, Form()] = None,
         hotspot_name: Annotated[str | None, Form()] = None,
+        px4_path: Annotated[str | None, Form()] = None,
+        local_ws_dir: Annotated[str | None, Form()] = None,
     ) -> MessageResponse:
         updates = ctx.config.update_from_form(
             {
@@ -36,6 +38,8 @@ def build_router(ctx: AppContext) -> APIRouter:
                 "ssh_pass": ssh_pass,
                 "github_repo": github_repo,
                 "hotspot_name": hotspot_name,
+                "px4_path": px4_path,
+                "local_ws_dir": local_ws_dir,
             }
         )
         out = f"Updated: {', '.join(updates.keys())}" if updates else "No changes"

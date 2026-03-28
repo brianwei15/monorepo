@@ -7,7 +7,13 @@
 # ]
 # ///
 
+import logging
 from pathlib import Path
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s - %(message)s",
+)
 
 if __package__:
     from .backend import create_app
@@ -20,4 +26,4 @@ app = create_app(Path(__file__).parent)
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=8080)
+    uvicorn.run(app, host="0.0.0.0", port=8080, log_level="info")

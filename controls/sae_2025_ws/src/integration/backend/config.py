@@ -6,6 +6,12 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
+DRONE_FLEET = [
+    {"id": "px4_1", "name": "penn1", "host": os.environ.get("DRONE_1_HOST", "10.42.0.231")},
+    {"id": "px4_2", "name": "penn2", "host": os.environ.get("DRONE_2_HOST", "10.42.0.237")},
+    {"id": "px4_3", "name": "penn3", "host": os.environ.get("DRONE_3_HOST", "10.42.0.248")},
+]
+
 
 @dataclass(slots=True)
 class RuntimeConfig:
@@ -17,6 +23,8 @@ class RuntimeConfig:
     github_repo: str
     github_token: str
     hotspot_name: str
+    px4_path: str
+    local_ws_dir: str
 
     @classmethod
     def from_env(cls, base_dir: Path) -> "RuntimeConfig":
@@ -31,6 +39,8 @@ class RuntimeConfig:
             github_repo=os.environ.get("GITHUB_REPO", ""),
             github_token=os.environ.get("GITHUB_TOKEN", ""),
             hotspot_name=os.environ.get("HOTSPOT_CON_NAME", "penn-desktop"),
+            px4_path=os.environ.get("PX4_PATH", ""),
+            local_ws_dir=os.environ.get("LOCAL_WS_DIR", ""),
         )
         if not cfg.github_repo:
             cfg.github_repo = _detect_github_repo(base_dir)
@@ -57,6 +67,8 @@ class RuntimeConfig:
             "ssh_pass": "••••" if self.ssh_pass else "",
             "github_repo": self.github_repo,
             "hotspot_name": self.hotspot_name,
+            "px4_path": self.px4_path,
+            "local_ws_dir": self.local_ws_dir,
         }
 
     def update_from_form(self, updates: dict[str, str | None]) -> dict[str, str]:
@@ -80,6 +92,8 @@ class RuntimeConfig:
 
         _set("github_repo", updates.get("github_repo"))
         _set("hotspot_name", updates.get("hotspot_name"))
+        _set("px4_path", updates.get("px4_path"))
+        _set("local_ws_dir", updates.get("local_ws_dir"))
 
         return changed
 

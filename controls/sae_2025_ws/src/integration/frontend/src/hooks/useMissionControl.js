@@ -36,7 +36,9 @@ function initialMissionState(connected) {
   }
 }
 
-export function useMissionControl({ connected, onRefresh }) {
+export function useMissionControl({ connected, onRefresh, droneId = null }) {
+  const apiBase = droneId ? `/api/drones/${droneId}` : '/api/mission'
+  const wsTerminalPath = droneId ? `/ws/drones/${droneId}/terminal` : '/ws/mission/terminal'
   const [actionLoading, setActionLoading] = useState('')
   const [actionResult, setActionResult] = useState(null)
 
@@ -164,7 +166,7 @@ export function useMissionControl({ connected, onRefresh }) {
 
     const proto = window.location.protocol === 'https:' ? 'wss' : 'ws'
     const cursor = logCursorRef.current
-    const url = `${proto}://${window.location.host}/ws/mission/terminal?offset=${cursor.offset}&inode=${cursor.inode}`
+    const url = `${proto}://${window.location.host}${wsTerminalPath}?offset=${cursor.offset}&inode=${cursor.inode}`
     const ws = new WebSocket(url)
 
     streamRef.current = ws
@@ -246,7 +248,7 @@ export function useMissionControl({ connected, onRefresh }) {
       return false
     }
 
-    const data = await api('/api/mission/launch/logs?offset=0&inode=0')
+    const data = await api(`${apiBase}/launch/logs?offset=0&inode=0`)
     if (data.success) {
       const text = data.logs || ''
       resetTerminal(text)
@@ -277,7 +279,7 @@ export function useMissionControl({ connected, onRefresh }) {
     statusInFlightRef.current = true
 
     try {
-      const stateRes = await api('/api/mission/state')
+      const stateRes = await api(`${apiBase}/state`)
       if (!stateRes.success || !stateRes.state) {
         const fallbackError = stateRes?.error || 'Failed to refresh mission state'
         streamActiveRef.current = false
@@ -332,7 +334,7 @@ export function useMissionControl({ connected, onRefresh }) {
     }
 
     setMissionNamesLoading(true)
-    const data = await api('/api/mission/mission-names')
+    const data = await api(`${apiBase}/mission-names`)
     if (data.success && Array.isArray(data.missions)) {
       setMissionNames(data.missions)
       setMissionNamesError(null)
@@ -352,7 +354,7 @@ export function useMissionControl({ connected, onRefresh }) {
     setParamsLoading(true)
     setParamsResult(null)
 
-    const data = await api('/api/mission/launch-params')
+    const data = await api(`${apiBase}/launch-params`)
     if (data.success) {
       setParamsText(data.content || '')
     } else {
@@ -380,7 +382,7 @@ export function useMissionControl({ connected, onRefresh }) {
 
     setMissionFileLoading(true)
     setMissionFileResult(null)
-    const data = await api(`/api/mission/mission-file?name=${encodeURIComponent(name)}`)
+    const data = await api(`${apiBase}/mission-file?name=${encodeURIComponent(name)}`)
     if (data.success) {
       setMissionFileText(data.content || '')
       setMissionFileResult(null)
@@ -411,7 +413,7 @@ export function useMissionControl({ connected, onRefresh }) {
     const fd = new FormData()
     fd.append('name', name)
     fd.append('content', missionFileText)
-    const data = await api('/api/mission/mission-file', { method: 'POST', body: fd })
+    const data = await api(`${apiBase}/mission-file`, { method: 'POST', body: fd })
     setMissionFileResult(data)
     setMissionFileSaving(false)
     return Boolean(data.success)
@@ -429,7 +431,7 @@ export function useMissionControl({ connected, onRefresh }) {
     const fd = new FormData()
     fd.append('content', paramsText)
 
-    const data = await api('/api/mission/launch-params', { method: 'POST', body: fd })
+    const data = await api(`${apiBase}/launch-params`, { method: 'POST', body: fd })
     setParamsResult(data)
     setParamsLoading(false)
   }, [connected, paramsText])
@@ -476,7 +478,7 @@ export function useMissionControl({ connected, onRefresh }) {
       setStreamConnected(false)
       hasLoadedLogsRef.current = false
       logCursorRef.current = { offset: 0, inode: 0 }
-      resetTerminal('Connect to the Pi WiFi to view launch output.\r\n')
+      resetTerminal('Launch output will appear here once a mission is prepared.\r\n')
       return undefined
     }
 
