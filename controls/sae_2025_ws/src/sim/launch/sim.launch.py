@@ -195,8 +195,8 @@ def launch_setup(context, *args, **kwargs):
     )
 
     thermal_bridges = []
-        # The thermal sensor uses an explicit <topic> in the SDF, so GZ publishes
-        # on a short path rather than the full world-scoped path.
+    # The thermal sensor uses an explicit <topic> in the SDF, so GZ publishes
+    # on a short path rather than the full world-scoped path.
     thermal_bridges.append(
         Node(
             package="ros_gz_bridge",
