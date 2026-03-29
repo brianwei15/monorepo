@@ -1,10 +1,10 @@
 from sim.world_gen import WorldNode
 from sim.world_gen.entity import Entity
+from sim.constants import NUM_HEAT_SOURCES
 from typing import Optional
 import rclpy
 from ros_gz_interfaces.srv import SpawnEntity
-import gz.transport13
-from gz.msgs.twist_pb2 import Twist
+from geometry_msgs.msg import Twist
 import sys
 import json
 import random
@@ -39,14 +39,13 @@ class SwarmWorldNode(WorldNode):
             template_world_path=template_world, physics=physics
         )
 
-        self._gz_node = gz.transport13.Node()
         self._cmd_vel_pubs: list = []
         self._cmd_vel_timer = None  # started after generate_world()
 
     def generate_world(self):
-        for i in range(100):
-            random_x = random.uniform(0, 10)
-            random_y = random.uniform(0, 10)
+        for i in range(NUM_HEAT_SOURCES):
+            random_x = random.uniform(-10, 10)
+            random_y = random.uniform(-10, 10)
             heat_source = Entity(
                 name="heat_source_" + str(i),
                 path_to_sdf="~/.simulation-gazebo/models/heat_source/model.sdf",
@@ -59,8 +58,8 @@ class SwarmWorldNode(WorldNode):
             req.entity_factory = heat_source.to_entity_factory_msg()
             self.spawn_entity_client.call_async(req)
 
-            pub = self._gz_node.advertise(
-                f"/model/heat_source_{i}/cmd_vel", Twist
+            pub = self.create_publisher(
+                Twist, f"/model/heat_source_{i}/cmd_vel", 5
             )
             self._cmd_vel_pubs.append(pub)
 

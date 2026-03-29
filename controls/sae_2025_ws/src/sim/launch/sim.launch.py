@@ -26,6 +26,7 @@ from sim.constants import (
     COMPETITION_NAMES,
     DEFAULT_COMPETITION,
     DEFAULT_USE_SCORING,
+    NUM_HEAT_SOURCES,
 )
 import json
 
@@ -194,6 +195,22 @@ def launch_setup(context, *args, **kwargs):
         competition, logger, competition, mission_stage
     )
 
+    heat_source_bridges = []
+    heat_source_bridge_args = [
+        f"/model/heat_source_{i}/cmd_vel@geometry_msgs/msg/Twist]gz.msgs.Twist"
+        for i in range(NUM_HEAT_SOURCES)
+    ]
+    heat_source_bridges.append(
+        Node(
+            package="ros_gz_bridge",
+            executable="parameter_bridge",
+            arguments=heat_source_bridge_args,
+            output="screen",
+            name="gz_ros_bridge_heat_sources",
+            cwd=sae_ws_path,
+        )
+    )
+
     thermal_bridges = []
     # The thermal sensor uses an explicit <topic> in the SDF, so GZ publishes
     # on a short path rather than the full world-scoped path.
@@ -289,6 +306,7 @@ def launch_setup(context, *args, **kwargs):
                     gz_ros_bridge_camera,
                     gz_ros_bridge_camera_info,
                     *thermal_bridges,
+                    *heat_source_bridges,
                 ],
             )
         ),
