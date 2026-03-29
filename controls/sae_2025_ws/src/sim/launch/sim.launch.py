@@ -195,20 +195,19 @@ def launch_setup(context, *args, **kwargs):
     )
 
     thermal_bridges = []
-    if "thermal" in model:
-        # The thermal sensor uses an explicit <topic> in the SDF, so GZ publishes
-        # on a short path rather than the full world-scoped path.
-        thermal_bridges.append(
-            Node(
-                package="ros_gz_bridge",
-                executable="parameter_bridge",
-                arguments=["/thermal_camera/image@sensor_msgs/msg/Image[gz.msgs.Image"],
-                remappings=[("/thermal_camera/image", "/thermal_camera")],
-                output="screen",
-                name="gz_ros_bridge_thermal",
-                cwd=sae_ws_path,
-            )
+    # The thermal sensor uses an explicit <topic> in the SDF, so GZ publishes
+    # on a short path rather than the full world-scoped path.
+    thermal_bridges.append(
+        Node(
+            package="ros_gz_bridge",
+            executable="parameter_bridge",
+            arguments=["/thermal_camera/image@sensor_msgs/msg/Image[gz.msgs.Image"],
+            remappings=[("/thermal_camera/image", "/thermal_camera")],
+            output="screen",
+            name="gz_ros_bridge_thermal",
+            cwd=sae_ws_path,
         )
+    )
 
     if "world" not in sim_stage_params:
         raise ValueError(

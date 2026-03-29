@@ -87,8 +87,36 @@ class SwarmSearchMode(Mode):
         self._waypoints = self.create_triangle_pattern(self._heading_deg, self._forward_dist)
         self._wp_index = [0] * len(self.uavs)
 
-    def create_triangle_pattern(self, initial_heading, dist):
+    def create_circle_pattern(self, initial_heading, radius):
+        path_segments = [
+            [float(initial_heading + i), float(radius / 360)] for i in range(360)
+        ]
 
+        waypoints = [[], [], []]
+        curr_heading = 0.0
+        curr_pos = np.array(
+            [self.uavs[0].local_position.x, self.uavs[0].local_position.y]
+        )
+        for rel_heading, distance in path_segments:
+            self.log(f"{rel_heading, distance}")
+            curr_heading += rel_heading
+            unit_dir = self.ned_deg_to_unit_vector(curr_heading)
+            next_xy = distance * unit_dir + curr_pos
+            curr_pos = next_xy
+            d1_next_wp = np.array([next_xy[0], next_xy[1], self._altitudes[0]])
+            rel_right = self.ned_deg_to_unit_vector(curr_heading + 90.0)
+            right_xy = next_xy + (self._drone_spacing * rel_right)
+            rel_left = self.ned_deg_to_unit_vector(curr_heading - 90.0)
+            left_xy = next_xy + (self._drone_spacing * rel_left)
+            d2_next_wp = np.array([right_xy[0], right_xy[1], self._altitudes[1]])
+            d3_next_wp = np.array([left_xy[0], left_xy[1], self._altitudes[1]])
+            waypoints[0].append(d1_next_wp)
+            waypoints[1].append(d2_next_wp)
+            waypoints[2].append(d3_next_wp)
+
+        return waypoints
+
+    def create_triangle_pattern(self, initial_heading, dist):
         path_segments = [
             [float(initial_heading), float(dist)], #initial heading is NED
             [120.0, float(dist)/3],
@@ -97,6 +125,10 @@ class SwarmSearchMode(Mode):
             [120.0, float(dist)],
             # then it returns to local origin
         ]
+        
+        return self._pattern_helper(path_segments)
+
+    def _pattern_helper(self, path_segments):
         waypoints = [[], [], []]
         curr_heading = 0.0
         curr_pos = np.array(

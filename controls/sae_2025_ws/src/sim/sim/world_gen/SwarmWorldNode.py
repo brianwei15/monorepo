@@ -5,6 +5,7 @@ import rclpy
 from ros_gz_interfaces.srv import SpawnEntity
 import sys
 import json
+import random
 
 
 class SwarmWorldNode(WorldNode):
@@ -33,17 +34,23 @@ class SwarmWorldNode(WorldNode):
         )
 
     def generate_world(self):
-        heat_source = Entity(
-            name="heat_source_0",
-            path_to_sdf="~/.simulation-gazebo/models/heat_source/model.sdf",
-            position=(0.2, 0.0, 0.1),
-            rpy=(0.0, 0.0, 0.0),
-            world=self.world_name,
-        )
-        req = SpawnEntity.Request()
-        req.entity_factory = heat_source.to_entity_factory_msg()
-        self.spawn_entity_client.call_async(req)
+        for i in range(100):
+            random_x = random.uniform(0, 10)
+            random_y = random.uniform(0, 10)
+            heat_source = Entity(
+                name="heat_source_" + str(i),
+                path_to_sdf="~/.simulation-gazebo/models/heat_source/model.sdf",
+                position=(random_x, random_y, 0.1),
+                rpy=(0.0, 0.0, 0.0),
+                world=self.world_name,
+            )
 
+            req = SpawnEntity.Request()
+            req.entity_factory = heat_source.to_entity_factory_msg()
+            self.spawn_entity_client.call_async(req)
+
+
+        
         return super().generate_world()
 
 
