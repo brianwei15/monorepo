@@ -3,9 +3,15 @@ from sim.world_gen.entity import Entity
 from typing import Optional
 import rclpy
 from ros_gz_interfaces.srv import SpawnEntity
+import gz.transport13
+from gz.msgs.twist_pb2 import Twist
 import sys
 import json
 import random
+
+CIRCLE_SPEED = 1.0   # linear speed (m/s); radius = CIRCLE_SPEED / CIRCLE_OMEGA
+CIRCLE_OMEGA = 0.5   # angular speed (rad/s) → 2 m radius circles
+CMD_HZ = 10.0        # how often to re-publish cmd_vel
 
 
 class SwarmWorldNode(WorldNode):
@@ -33,6 +39,10 @@ class SwarmWorldNode(WorldNode):
             template_world_path=template_world, physics=physics
         )
 
+        self._gz_node = gz.transport13.Node()
+        self._cmd_vel_pubs: list = []
+        self._cmd_vel_timer = None  # started after generate_world()
+
     def generate_world(self):
         for i in range(100):
             random_x = random.uniform(0, 10)
@@ -49,7 +59,22 @@ class SwarmWorldNode(WorldNode):
             req.entity_factory = heat_source.to_entity_factory_msg()
             self.spawn_entity_client.call_async(req)
 
+            pub = self._gz_node.advertise(
+                f"/model/heat_source_{i}/cmd_vel", Twist
+            )
+            self._cmd_vel_pubs.append(pub)
+
+        self._cmd_vel_timer = self.create_timer(
+            1.0 / CMD_HZ, self._publish_cmd_vel
+        )
         return super().generate_world()
+
+    def _publish_cmd_vel(self):
+        twist = Twist()
+        twist.linear.x = CIRCLE_SPEED
+        twist.angular.z = CIRCLE_OMEGA
+        for pub in self._cmd_vel_pubs:
+            pub.publish(twist)
 
 
 def main(args=None):
