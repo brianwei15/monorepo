@@ -38,6 +38,7 @@ setup(
             "thermal_camera_node = uav.ThermalCameraNode:main",
             "thermal_vision_node = uav.vision_nodes.ThermalVisionNode:main",
             "camera = uav.CameraNode:main",
+            "raft_detection_node = uav.vision_nodes.RaftDetectionNode:main",
         ],
     },
 )

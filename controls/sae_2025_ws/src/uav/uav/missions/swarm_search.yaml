@@ -25,6 +25,10 @@ search:
     margin: 0.5                 # waypoint arrival tolerance (metres)
   transitions:
     complete: land
+    raft_found: hover
+
+hover:
+  class: uav.autonomous_modes.SwarmHoverMode
 
 land:
   class: uav.autonomous_modes.SwarmLandingMode

@@ -18,3 +18,4 @@ from .PayloadDriveToAprilTagMode import (
 from .PayloadColorOrbitToRearMode import (
     PayloadColorOrbitToRearMode as PayloadColorOrbitToRearMode,
 )
+from .SwarmHoverMode import SwarmHoverMode as SwarmHoverMode
