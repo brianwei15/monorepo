@@ -20,12 +20,24 @@ def _px4_id(drone_id: str) -> str:
     return drone_id.split("_")[-1] if "_" in drone_id else "1"
 
 
-def _paths(ctx: AppContext) -> dict[str, str]:
+def _launch_paths(ctx: AppContext) -> dict[str, str]:
     d = ctx.config.remote_dir
     return {
         "log":  f"{d}/.pi_setup_launch.log",
         "pid":  f"{d}/.pi_setup_launch.pid",
         "pgid": f"{d}/.pi_setup_launch.pgid",
+    }
+
+# Keep old name as alias so callers don't break
+_paths = _launch_paths
+
+
+def _build_paths(ctx: AppContext) -> dict[str, str]:
+    d = ctx.config.remote_dir
+    return {
+        "log":  f"{d}/.pi_setup_build.log",
+        "pid":  f"{d}/.pi_setup_build.pid",
+        "pgid": f"{d}/.pi_setup_build.pgid",
     }
 
 
@@ -34,8 +46,8 @@ def _is_offline(msg: str) -> bool:
     return "cannot find " in lower or "cannot reach " in lower or "timed out" in lower
 
 
-async def probe_status(ctx: AppContext) -> dict:
-    paths = _paths(ctx)
+async def _probe(ctx: AppContext, paths: dict) -> dict:
+    """Generic probe: check if the process tracked by paths is running."""
     cmd = f"""
         pid_file={ctx.ssh.q(paths["pid"])}
         log_file={ctx.ssh.q(paths["log"])}
@@ -67,43 +79,47 @@ async def probe_status(ctx: AppContext) -> dict:
     return {"success": True, "running": False, "state": "stopped"}
 
 
-async def launch(ctx: AppContext, drone_id: str) -> dict:
-    px4_id = _px4_id(drone_id)
-    thermal_flag = "true" if px4_id == "1" else "false"
-    logger.info("[pi_setup.launch] drone_id=%r px4_id=%r thermal_flag=%r", drone_id, px4_id, thermal_flag)
-    paths = _paths(ctx)
-    script_path = paths["log"].replace(".log", ".sh")
+async def _stop_process(ctx: AppContext, paths: dict, label: str) -> dict:
+    """Generic stop: kill the process tracked by paths."""
+    cmd = f"""
+        pid_file={ctx.ssh.q(paths["pid"])}
+        pgid_file={ctx.ssh.q(paths["pgid"])}
+        if [ ! -f "$pid_file" ]; then echo "NOT_RUNNING"; exit 0; fi
+        pid="$(cat "$pid_file" 2>/dev/null || true)"
+        pgid=""
+        if [ -f "$pgid_file" ]; then pgid="$(cat "$pgid_file" 2>/dev/null || true)"; fi
+        target=""
+        if [ -n "$pgid" ] && kill -0 "-$pgid" 2>/dev/null; then target="-$pgid";
+        elif [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then target="$pid";
+        else rm -f "$pid_file" "$pgid_file"; echo "NOT_RUNNING"; exit 0; fi
+        kill -INT "$target" 2>/dev/null || true
+        for _ in 1 2 3 4 5; do
+            if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then sleep 1;
+            else rm -f "$pid_file" "$pgid_file"; echo "STOPPED"; exit 0; fi
+        done
+        kill -KILL "$target" 2>/dev/null || true
+        rm -f "$pid_file" "$pgid_file"
+        echo "STOPPED"
+    """
+    result = await ctx.ssh.run(f"bash -lc {ctx.ssh.q(cmd)}", timeout=20)
+    if result.returncode != 0:
+        return {"success": False, "error": ctx.ssh.format_remote_error(result.stderr, f"Stop {label} failed")}
+    return {"success": True, "output": f"{label} stopped"}
 
-    # Build the run script — base64 encoded so SSH quoting never mangers it.
-    script_src = f"""\
-#!/bin/bash
-set -e
-source /opt/ros/humble/setup.bash
-cd ~/monorepo/controls/sae_2025_ws
-echo "=== Building uav package ==="
-rm -rf build/uav install/uav
-colcon build --packages-select uav
-if [ $? -ne 0 ]; then
-    echo "=== BUILD FAILED ==="
-    exit 1
-fi
-echo "=== Build complete. Sourcing install and launching pi-setup (px4_id={px4_id}) ==="
-source install/setup.bash
-exec ros2 launch uav pi-setup.launch.py px4_id:={px4_id} thermal:={thermal_flag}
-"""
-    logger.info("[pi_setup.launch] launch command: ros2 launch uav pi-setup.launch.py px4_id:=%s thermal:=%s", px4_id, thermal_flag)
+
+async def _start_detached(ctx: AppContext, script_src: str, paths: dict, label: str) -> dict:
+    """Write script to Pi, kill any existing process tracked by paths, then start it detached."""
+    script_path = paths["log"].replace(".log", ".sh")
     encoded = base64.b64encode(script_src.encode()).decode()
 
-    # Step 1: write the script to the Pi
     write_cmd = (
         f"printf '%s' {ctx.ssh.q(encoded)} | base64 -d > {ctx.ssh.q(script_path)}"
         f" && chmod +x {ctx.ssh.q(script_path)}"
     )
     wr = await ctx.ssh.run(write_cmd, timeout=10)
     if wr.returncode != 0:
-        return {"success": False, "error": ctx.ssh.format_remote_error(wr.stderr, "Failed to write launch script")}
+        return {"success": False, "error": ctx.ssh.format_remote_error(wr.stderr, f"Failed to write {label} script")}
 
-    # Step 2: kill any existing process, clear the log, start nohup
     cmd = f"""
         set -e
         pid_file={ctx.ssh.q(paths["pid"])}
@@ -162,42 +178,90 @@ exec ros2 launch uav pi-setup.launch.py px4_id:={px4_id} thermal:={thermal_flag}
     combined = "\n".join(p for p in (stdout, stderr) if p)
     match = re.search(r"STARTED\s*:\s*([0-9]+)", combined)
     if match:
-        return {
-            "success": True,
-            "output": f"pi-setup build+launch started (px4_id={px4_id})",
-            "running": True,
-            "pid": match.group(1),
-        }
-    error = ctx.ssh.format_remote_error(result.stderr or result.stdout, "pi-setup launch failed")
+        return {"success": True, "output": f"{label} started", "running": True, "pid": match.group(1)}
+    error = ctx.ssh.format_remote_error(result.stderr or result.stdout, f"{label} failed to start")
     return {"success": False, "error": error}
 
 
+async def probe_status(ctx: AppContext) -> dict:
+    return await _probe(ctx, _launch_paths(ctx))
+
+
+async def probe_build_status(ctx: AppContext) -> dict:
+    return await _probe(ctx, _build_paths(ctx))
+
+
+async def build(ctx: AppContext, drone_id: str) -> dict:
+    """Run only the colcon build step (no launch)."""
+    px4_id = _px4_id(drone_id)
+    logger.info("[pi_setup.build] drone_id=%r px4_id=%r", drone_id, px4_id)
+    paths = _build_paths(ctx)
+
+    script_src = f"""\
+#!/bin/bash
+set -e
+source /opt/ros/humble/setup.bash
+cd ~/monorepo/controls/sae_2025_ws
+echo "=== Building uav package (px4_id={px4_id}) ==="
+rm -rf build/uav install/uav
+colcon build --packages-select uav
+if [ $? -ne 0 ]; then
+    echo "=== BUILD FAILED ==="
+    exit 1
+fi
+echo "=== Build complete ==="
+"""
+    result = await _start_detached(ctx, script_src, paths, "build")
+    if result.get("success"):
+        result["output"] = f"uav build started (px4_id={px4_id})"
+    return result
+
+
+async def launch(ctx: AppContext, drone_id: str, config=None) -> dict:
+    """Run only the ros2 launch step (assumes package is already built)."""
+    from ..models import PiLaunchConfig
+    if config is None:
+        config = PiLaunchConfig()
+    px4_id = config.px4_id if config.px4_id else _px4_id(drone_id)
+    thermal = config.thermal if config.thermal is not None else (px4_id == "1")
+    thermal_flag = "true" if thermal else "false"
+    use_camera_flag = "true" if config.use_camera else "false"
+    use_mavproxy_flag = "true" if config.use_mavproxy else "false"
+    use_xrce_flag = "true" if config.use_xrce else "false"
+    telem = config.telem or "telem2"
+    proxy_ip = config.proxy_ip or "10.42.0.1"
+    udp_port = int(config.udp_port or 14550)
+    logger.info(
+        "[pi_setup.launch] drone_id=%r px4_id=%r telem=%r proxy_ip=%r udp_port=%r thermal=%r use_camera=%r use_mavproxy=%r use_xrce=%r",
+        drone_id, px4_id, telem, proxy_ip, udp_port, thermal_flag, use_camera_flag, use_mavproxy_flag, use_xrce_flag,
+    )
+    paths = _launch_paths(ctx)
+
+    script_src = f"""\
+#!/bin/bash
+set -e
+source /opt/ros/humble/setup.bash
+cd ~/monorepo/controls/sae_2025_ws
+if [ ! -f install/uav/share/uav/package.xml ]; then
+    echo "=== ERROR: uav package not built — run Build first ==="
+    exit 1
+fi
+echo "=== Launching pi-setup (px4_id={px4_id} telem={telem} proxy={proxy_ip}:{udp_port}) ==="
+source install/setup.bash
+exec ros2 launch uav pi-setup.launch.py px4_id:={px4_id} telem:={telem} proxy_ip:={proxy_ip} udp_port:={udp_port} thermal:={thermal_flag} use_camera:={use_camera_flag} use_mavproxy:={use_mavproxy_flag} use_xrce:={use_xrce_flag}
+"""
+    result = await _start_detached(ctx, script_src, paths, "launch")
+    if result.get("success"):
+        result["output"] = f"pi-setup launched (px4_id={px4_id})"
+    return result
+
+
 async def stop(ctx: AppContext) -> dict:
-    paths = _paths(ctx)
-    cmd = f"""
-        pid_file={ctx.ssh.q(paths["pid"])}
-        pgid_file={ctx.ssh.q(paths["pgid"])}
-        if [ ! -f "$pid_file" ]; then echo "NOT_RUNNING"; exit 0; fi
-        pid="$(cat "$pid_file" 2>/dev/null || true)"
-        pgid=""
-        if [ -f "$pgid_file" ]; then pgid="$(cat "$pgid_file" 2>/dev/null || true)"; fi
-        target=""
-        if [ -n "$pgid" ] && kill -0 "-$pgid" 2>/dev/null; then target="-$pgid";
-        elif [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then target="$pid";
-        else rm -f "$pid_file" "$pgid_file"; echo "NOT_RUNNING"; exit 0; fi
-        kill -INT "$target" 2>/dev/null || true
-        for _ in 1 2 3 4 5; do
-            if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then sleep 1;
-            else rm -f "$pid_file" "$pgid_file"; echo "STOPPED"; exit 0; fi
-        done
-        kill -KILL "$target" 2>/dev/null || true
-        rm -f "$pid_file" "$pgid_file"
-        echo "STOPPED"
-    """
-    result = await ctx.ssh.run(f"bash -lc {ctx.ssh.q(cmd)}", timeout=20)
-    if result.returncode != 0:
-        return {"success": False, "error": ctx.ssh.format_remote_error(result.stderr, "Stop failed")}
-    return {"success": True, "output": "pi-setup stopped"}
+    return await _stop_process(ctx, _launch_paths(ctx), "launch")
+
+
+async def stop_build(ctx: AppContext) -> dict:
+    return await _stop_process(ctx, _build_paths(ctx), "build")
 
 
 async def get_logs(
@@ -205,8 +269,9 @@ async def get_logs(
     *,
     offset: int | None = None,
     inode: int | None = None,
+    log_type: str = "launch",
 ) -> dict:
-    paths = _paths(ctx)
+    paths = _build_paths(ctx) if log_type == "build" else _launch_paths(ctx)
     log_file = paths["log"]
 
     if offset is not None:
@@ -257,6 +322,7 @@ async def stream_terminal(
     *,
     offset: int = 0,
     inode: int = 0,
+    log_type: str = "launch",
 ) -> None:
     await websocket.accept()
     current_offset = max(0, offset)
@@ -264,7 +330,7 @@ async def stream_terminal(
 
     try:
         while True:
-            chunk = await get_logs(ctx, offset=current_offset, inode=current_inode)
+            chunk = await get_logs(ctx, offset=current_offset, inode=current_inode, log_type=log_type)
             if not chunk.get("success"):
                 msg = TerminalInfoMessage(
                     type="error",

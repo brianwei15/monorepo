@@ -164,3 +164,14 @@ class TerminalInfoMessage(BaseModel):
 class BuildTransferResult(BaseModel):
     artifact_name: str
     output: str
+
+
+class PiLaunchConfig(BaseModel):
+    thermal: bool | None = None   # None = auto (true for px4_1 only)
+    use_camera: bool = True
+    use_mavproxy: bool = True
+    use_xrce: bool = True
+    px4_id: str | None = None     # None = auto from drone_id
+    telem: str = "telem2"
+    proxy_ip: str = "10.42.0.1"
+    udp_port: int = 14550

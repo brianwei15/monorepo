@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import asyncio
 
-from fastapi import APIRouter, Query, WebSocket
+from fastapi import APIRouter, Body, Query, WebSocket
 
 from ..config import DRONE_FLEET
 from ..context import AppContext
+from ..models import PiLaunchConfig
 from ..services import pi_setup
 
 
@@ -57,27 +58,33 @@ def build_router(ctx: AppContext) -> APIRouter:
         status = await pi_setup.probe_status(drone.as_app_context())
         return {**status, "connected": True}
 
-    @router.post("/api/pi-connections/{drone_id}/launch")
-    async def pi_launch(drone_id: str):
+    @router.get("/api/pi-connections/{drone_id}/build-status")
+    async def pi_build_status(drone_id: str):
         drone = ctx.fleet.get(drone_id)
         if not drone:
             return {"success": False, "error": f"Unknown drone: {drone_id}"}
-        return await pi_setup.launch(drone.as_app_context(), drone_id)
+        try:
+            ping = await drone.ssh.run("echo ok", timeout=3)
+            if ping.returncode != 0:
+                return {"success": True, "connected": False, "state": "offline"}
+        except Exception:
+            return {"success": True, "connected": False, "state": "offline"}
+        status = await pi_setup.probe_build_status(drone.as_app_context())
+        return {**status, "connected": True}
 
-    @router.get("/api/pi-connections/{drone_id}/logs")
-    async def pi_logs(
-        drone_id: str,
-        offset: int = Query(default=None),
-        inode: int = Query(default=None),
-    ):
+    @router.post("/api/pi-connections/{drone_id}/build")
+    async def pi_build(drone_id: str):
         drone = ctx.fleet.get(drone_id)
         if not drone:
             return {"success": False, "error": f"Unknown drone: {drone_id}"}
-        return await pi_setup.get_logs(
-            drone.as_app_context(),
-            offset=offset,
-            inode=inode,
-        )
+        return await pi_setup.build(drone.as_app_context(), drone_id)
+
+    @router.post("/api/pi-connections/{drone_id}/launch")
+    async def pi_launch(drone_id: str, config: PiLaunchConfig | None = Body(default=None)):
+        drone = ctx.fleet.get(drone_id)
+        if not drone:
+            return {"success": False, "error": f"Unknown drone: {drone_id}"}
+        return await pi_setup.launch(drone.as_app_context(), drone_id, config)
 
     @router.post("/api/pi-connections/{drone_id}/stop")
     async def pi_stop(drone_id: str):
@@ -86,19 +93,44 @@ def build_router(ctx: AppContext) -> APIRouter:
             return {"success": False, "error": f"Unknown drone: {drone_id}"}
         return await pi_setup.stop(drone.as_app_context())
 
+    @router.post("/api/pi-connections/{drone_id}/stop-build")
+    async def pi_stop_build(drone_id: str):
+        drone = ctx.fleet.get(drone_id)
+        if not drone:
+            return {"success": False, "error": f"Unknown drone: {drone_id}"}
+        return await pi_setup.stop_build(drone.as_app_context())
+
+    @router.get("/api/pi-connections/{drone_id}/logs")
+    async def pi_logs(
+        drone_id: str,
+        offset: int = Query(default=None),
+        inode: int = Query(default=None),
+        log_type: str = Query(default="launch"),
+    ):
+        drone = ctx.fleet.get(drone_id)
+        if not drone:
+            return {"success": False, "error": f"Unknown drone: {drone_id}"}
+        return await pi_setup.get_logs(
+            drone.as_app_context(),
+            offset=offset,
+            inode=inode,
+            log_type=log_type,
+        )
+
     @router.websocket("/ws/pi-connections/{drone_id}/terminal")
     async def pi_terminal(
         drone_id: str,
         websocket: WebSocket,
         offset: int = Query(default=0),
         inode: int = Query(default=0),
+        log_type: str = Query(default="launch"),
     ):
         drone = ctx.fleet.get(drone_id)
         if not drone:
             await websocket.close(code=4004)
             return
         await pi_setup.stream_terminal(
-            drone.as_app_context(), websocket, offset=offset, inode=inode
+            drone.as_app_context(), websocket, offset=offset, inode=inode, log_type=log_type
         )
 
     return router

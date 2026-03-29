@@ -42,15 +42,29 @@ def find_rgb_camera() -> str:
     raise RuntimeError("No RGB camera device found.")
 
 
+_TELEM_DEVICES = {
+    "telem1": "/dev/ttyAMA1",
+    "telem2": "/dev/serial0",
+    "telem3": "/dev/ttyAMA2",
+}
+
+
 def launch_setup(context, *args, **kwargs):
     proxy_ip = LaunchConfiguration("proxy_ip").perform(context)
     udp_port = LaunchConfiguration("udp_port").perform(context)
     px4_id = LaunchConfiguration("px4_id").perform(context)
     thermal = LaunchConfiguration("thermal").perform(context)
+    telem = LaunchConfiguration("telem").perform(context)
     ns = f"/px4_{px4_id}" if px4_id else ""
 
+    use_camera = LaunchConfiguration("use_camera").perform(context)
+    use_mavproxy = LaunchConfiguration("use_mavproxy").perform(context)
+    use_xrce = LaunchConfiguration("use_xrce").perform(context)
+
+    telem_dev = _TELEM_DEVICES.get(telem, telem)  # allow raw device path as fallback
+
     middleware = ExecuteProcess(
-        cmd=["MicroXRCEAgent", "serial", "--dev", "/dev/serial0", "-b", "921600"],
+        cmd=["MicroXRCEAgent", "serial", "--dev", telem_dev, "-b", "921600"],
         output="screen",
         name="middleware",
     )
@@ -111,6 +125,7 @@ def launch_setup(context, *args, **kwargs):
         except RuntimeError as e:
             import logging
             logging.warning(f"RGB camera autodetect failed: {e} — no device found, rgb_cam will likely fail")
+            rgb_device = ""
 
     rgb_cam = ExecuteProcess(
         cmd=[
@@ -128,15 +143,17 @@ def launch_setup(context, *args, **kwargs):
         name="rgb_cam",
     )
 
-    actions = [
-        middleware,
-        maxproxy,
-    ]
+    actions = []
 
-    if thermal.lower() == "true":
-        actions += [thermal_cam, rgb_cam]
-    else:
-        actions.append(v4l2_cam)
+    if use_xrce.lower() == "true":
+        actions.append(middleware)
+    if use_mavproxy.lower() == "true":
+        actions.append(maxproxy)
+    if use_camera.lower() == "true":
+        if thermal.lower() == "true":
+            actions += [thermal_cam, rgb_cam]
+        else:
+            actions.append(v4l2_cam)
 
     return actions
 
@@ -152,8 +169,12 @@ def generate_launch_description():
             DeclareLaunchArgument("proxy_ip", default_value="10.42.0.1"),
             DeclareLaunchArgument("udp_port", default_value="14550"),
             DeclareLaunchArgument("px4_id", default_value="1"),
+            DeclareLaunchArgument("telem", default_value="telem2"),
             DeclareLaunchArgument("thermal", default_value="false"),
             DeclareLaunchArgument("rgb_device", default_value=""),
+            DeclareLaunchArgument("use_camera", default_value="true"),
+            DeclareLaunchArgument("use_mavproxy", default_value="true"),
+            DeclareLaunchArgument("use_xrce", default_value="true"),
             OpaqueFunction(function=launch_setup),
         ]
     )

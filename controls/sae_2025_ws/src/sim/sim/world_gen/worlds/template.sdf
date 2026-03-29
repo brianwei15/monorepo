@@ -295,58 +295,6 @@
         <falloff>0</falloff>
       </spot>
     </light>
-    <light type="point" name="sun_2">
-      <cast_shadows>true</cast_shadows>
-      <pose>200 200 50 0 0 0</pose>
-      <diffuse>1 1 1 1</diffuse>
-      <specular>0.2 0.2 0.2 0.3</specular>
-      <attenuation>
-        <range>2000</range>
-        <constant>1</constant>
-        <linear>0</linear>
-        <quadratic>0</quadratic>
-      </attenuation>
-      <direction>0.01 0.01 -0.9</direction>
-    </light>
-    <light type="point" name="sun_3">
-      <cast_shadows>true</cast_shadows>
-      <pose>-200 200 50 0 0 0</pose>
-      <diffuse>1 1 1 1</diffuse>
-      <specular>0.2 0.2 0.2 0.3</specular>
-      <attenuation>
-        <range>2000</range>
-        <constant>1</constant>
-        <linear>0</linear>
-        <quadratic>0</quadratic>
-      </attenuation>
-      <direction>0.01 0.01 -0.9</direction>
-    </light>
-    <light type="point" name="sun_4">
-      <cast_shadows>true</cast_shadows>
-      <pose>-200 -200 50 0 0 0</pose>
-      <diffuse>1 1 1 1</diffuse>
-      <specular>0.2 0.2 0.2 0.3</specular>
-      <attenuation>
-        <range>2000</range>
-        <constant>1</constant>
-        <linear>0</linear>
-        <quadratic>0</quadratic>
-      </attenuation>
-      <direction>0.01 0.01 -0.9</direction>
-    </light>
-    <light type="point" name="sun_5">
-      <cast_shadows>true</cast_shadows>
-      <pose>200 -200 50 0 0 0</pose>
-      <diffuse>1 1 1 1</diffuse>
-      <specular>0.2 0.2 0.2 0.3</specular>
-      <attenuation>
-        <range>2000</range>
-        <constant>1</constant>
-        <linear>0</linear>
-        <quadratic>0</quadratic>
-      </attenuation>
-      <direction>0.01 0.01 -0.9</direction>
-    </light>
     <spherical_coordinates>
       <surface_model>EARTH_WGS84</surface_model>
       <world_frame_orientation>ENU</world_frame_orientation>

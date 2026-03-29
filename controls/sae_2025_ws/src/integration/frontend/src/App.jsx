@@ -1053,9 +1053,50 @@ function stateClass(state) {
   return 'pill-not-prepared'
 }
 
+const PI_LAUNCH_TOGGLES = [
+  { key: 'use_xrce',     label: 'XRCE',     help: 'MicroXRCEAgent middleware' },
+  { key: 'use_mavproxy', label: 'MAVProxy',  help: 'MAVProxy telemetry bridge' },
+  { key: 'use_camera',   label: 'Camera',    help: 'Camera nodes' },
+  { key: 'thermal',      label: 'Thermal',   help: 'Thermal + RGB cameras (requires Camera)', camDependent: true },
+]
+
+function buildStateClass(state) {
+  if (state === 'running') return 'pill-running'
+  if (state === 'stopped') return 'pill-stopped'
+  if (state === 'offline' || state === 'error') return 'pill-offline'
+  return 'pill-not-prepared'
+}
+
+function buildStateLabel(state) {
+  if (state === 'running') return 'Building'
+  if (state === 'stopped') return 'Built'
+  if (state === 'not_started') return 'Not built'
+  if (state === 'offline') return 'Offline'
+  if (state === 'error') return 'Error'
+  return 'Unknown'
+}
+
 function PiDronePanel({ droneId, name, host, connected }) {
-  const { terminalHostRef, status, streamConnected, actionLoading, actionResult, launch, stop } =
-    usePiSetup(droneId, connected)
+  const [launchConfig, setLaunchConfig] = useState(() => ({
+    use_xrce: true,
+    use_mavproxy: true,
+    use_camera: true,
+    thermal: droneId === 'px4_1',
+    px4_id: droneId.split('_').pop(),
+    telem: droneId === 'px4_1' ? 'telem3' : 'telem2',
+    proxy_ip: '10.42.0.1',
+    udp_port: 14550,
+  }))
+
+  const {
+    terminalHostRef, status, buildStatus, streamConnected,
+    actionLoading, actionResult, logType, switchLogType,
+    build, launch, stop, stopBuild,
+  } = usePiSetup(droneId, connected, launchConfig)
+
+  const setConfigKey = useCallback((key, val) => {
+    setLaunchConfig(prev => ({ ...prev, [key]: val }))
+  }, [])
 
   return (
     <div className="pi-drone-panel">
@@ -1066,15 +1107,20 @@ function PiDronePanel({ droneId, name, host, connected }) {
           <span className="pi-drone-host">{host}</span>
         </div>
         <div className="pi-drone-pills">
+          <span className="pi-pill-label">Build</span>
+          <span className={`launch-pill ${buildStateClass(buildStatus.state)}`}>
+            {buildStateLabel(buildStatus.state)}
+          </span>
+          <span className="pi-pill-label">Launch</span>
           <span className={`launch-pill ${stateClass(status.state)}`}>
             {stateLabel(status.state)}
           </span>
-          {status.running && (
+          {(buildStatus.running || status.running) && (
             <span className={`launch-pill ${streamConnected ? 'pill-running' : 'pill-not-prepared'}`}>
               {streamConnected ? 'Live' : 'Connecting...'}
             </span>
           )}
-          {status.pid && <span className="launch-pid">PID {status.pid}</span>}
+          {status.running && status.pid && <span className="launch-pid">PID {status.pid}</span>}
         </div>
       </div>
 
@@ -1082,24 +1128,126 @@ function PiDronePanel({ droneId, name, host, connected }) {
         <button
           className="btn btn-mission-prepare"
           style={{ width: 'auto', padding: '0.45rem 1rem' }}
+          onClick={build}
+          disabled={!!actionLoading || !connected}
+        >
+          {actionLoading === 'build' ? 'Building...' : 'Build'}
+        </button>
+        {buildStatus.running && (
+          <button
+            className="btn btn-mission-stop"
+            style={{ width: 'auto', padding: '0.45rem 1rem' }}
+            onClick={stopBuild}
+            disabled={!!actionLoading || !connected}
+          >
+            {actionLoading === 'stop-build' ? 'Stopping...' : 'Stop Build'}
+          </button>
+        )}
+        <div className="pi-actions-divider" />
+        <button
+          className="btn btn-mission-prepare"
+          style={{ width: 'auto', padding: '0.45rem 1rem' }}
           onClick={launch}
           disabled={!!actionLoading || !connected}
         >
-          {actionLoading === 'launch' ? 'Launching...' : status.running ? 'Rebuild & Relaunch' : 'Build & Launch'}
+          {actionLoading === 'launch' ? 'Launching...' : status.running ? 'Relaunch' : 'Launch'}
         </button>
-        <button
-          className="btn btn-mission-stop"
-          style={{ width: 'auto', padding: '0.45rem 1rem' }}
-          onClick={stop}
-          disabled={!!actionLoading || !connected || !status.running}
-        >
-          {actionLoading === 'stop' ? 'Stopping...' : 'Stop'}
-        </button>
+        {status.running && (
+          <button
+            className="btn btn-mission-stop"
+            style={{ width: 'auto', padding: '0.45rem 1rem' }}
+            onClick={stop}
+            disabled={!!actionLoading || !connected}
+          >
+            {actionLoading === 'stop' ? 'Stopping...' : 'Stop'}
+          </button>
+        )}
         {actionResult && (
           <span className={`pi-action-result ${actionResult.success ? 'result-ok' : 'result-err'}`}>
             {actionResult.success ? (actionResult.output || 'Done') : (actionResult.error || 'Failed')}
           </span>
         )}
+      </div>
+
+      <div className="pi-launch-config">
+        <div className="pi-launch-config-row">
+          <span className="pi-launch-config-label">Launch params</span>
+          {PI_LAUNCH_TOGGLES.map(({ key, label, help, camDependent }) => {
+            const isDisabled = (camDependent && !launchConfig.use_camera) || !!actionLoading
+            return (
+              <label
+                key={key}
+                className={`pi-config-toggle${isDisabled ? ' pi-config-disabled' : ''}`}
+                title={help}
+              >
+                <input
+                  type="checkbox"
+                  checked={Boolean(launchConfig[key])}
+                  onChange={e => setConfigKey(key, e.target.checked)}
+                  disabled={isDisabled}
+                />
+                {label}
+              </label>
+            )
+          })}
+        </div>
+        <div className="pi-launch-config-row">
+          <label className="pi-launch-field">
+            <span>PX4 ID</span>
+            <input
+              type="text"
+              value={launchConfig.px4_id ?? ''}
+              onChange={e => setConfigKey('px4_id', e.target.value || null)}
+              placeholder="auto"
+              disabled={!!actionLoading}
+            />
+          </label>
+          <label className="pi-launch-field">
+            <span>Telem</span>
+            <select
+              value={launchConfig.telem}
+              onChange={e => setConfigKey('telem', e.target.value)}
+              disabled={!!actionLoading}
+            >
+              <option value="telem1">telem1 — /dev/ttyAMA1</option>
+              <option value="telem2">telem2 — /dev/serial0</option>
+              <option value="telem3">telem3 — /dev/ttyAMA2</option>
+            </select>
+          </label>
+          <label className="pi-launch-field">
+            <span>Proxy IP</span>
+            <input
+              type="text"
+              value={launchConfig.proxy_ip}
+              onChange={e => setConfigKey('proxy_ip', e.target.value)}
+              disabled={!!actionLoading}
+            />
+          </label>
+          <label className="pi-launch-field">
+            <span>UDP Port</span>
+            <input
+              type="number"
+              value={launchConfig.udp_port}
+              onChange={e => setConfigKey('udp_port', Number(e.target.value))}
+              disabled={!!actionLoading}
+            />
+          </label>
+        </div>
+      </div>
+
+      <div className="pi-log-tabs">
+        <button
+          className={`pi-log-tab${logType === 'build' ? ' pi-log-tab-active' : ''}`}
+          onClick={() => switchLogType('build')}
+        >
+          Build Log
+        </button>
+        <button
+          className={`pi-log-tab${logType === 'launch' ? ' pi-log-tab-active' : ''}`}
+          onClick={() => switchLogType('launch')}
+        >
+          Launch Log
+        </button>
       </div>
 
       <div ref={terminalHostRef} className="terminal-output terminal-host pi-terminal" />

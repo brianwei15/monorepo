@@ -209,7 +209,7 @@ def launch_setup(context, *args, **kwargs):
             return "INFO  [commander] Ready for takeoff!"
         elif process_name == "middleware":
             return (
-                "INFO  [uxrce_dds_client] synchronized with time offset"
+                "INFO  [uxrce_dds_client] time sync converged"
                 if sim_bool
                 else "session established"
             )
@@ -286,23 +286,6 @@ def launch_setup(context, *args, **kwargs):
         ]
         logger.info(f"Detected payloads from config: {payload_names}")
 
-        payload_launch_actions = []
-        for payload_name in payload_names:
-            payload_launch_actions.append(
-                IncludeLaunchDescription(
-                    PythonLaunchDescriptionSource(
-                        os.path.join(
-                            get_package_share_directory("payload"),
-                            "launch",
-                            "payload.launch.py",
-                        )
-                    ),
-                    launch_arguments={
-                        "payload_name": payload_name,
-                        "controller": "SimController",
-                    }.items(),
-                )
-            )
 
         # Prepare sim launch arguments with all simulation parameters
         sim_launch_args = {
@@ -375,6 +358,7 @@ def launch_setup(context, *args, **kwargs):
         ) if len(ids) >= 3 else None
 
         extra_camera_bridges = [b for b in [gz_ros_bridge_camera2, gz_ros_bridge_camera3] if b is not None]
+        extra_camera_bridges = []
 
         actions = [
             sim,
@@ -386,7 +370,6 @@ def launch_setup(context, *args, **kwargs):
                             *active_sitls,
                             *vision_node_actions,
                             middleware,
-                            *payload_launch_actions,
                             *extra_camera_bridges,
                         ]
                         if b"Successfully generated world file:" in event.text
